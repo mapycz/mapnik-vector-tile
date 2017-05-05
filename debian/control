@@ -1,0 +1,17 @@
+Source: szn-mapnik-vector-tile
+Maintainer: Jiri Drbalek <jiri.drbalek@firma.seznam.cz>
+Section: misc
+Priority: optional
+Standards-Version: 3.9.2
+Build-Depends:
+    debhelper (>= 9),
+    szn-libmapnik-dev,
+    szn-libmapbox-variant-dev,
+    szn-libmapbox-geometry-dev,
+    szn-libwagyu-dev
+
+Package: szn-mapnik-vector-tile-dev
+Section: libdevel
+Architecture: amd64
+Depends: ${misc:Depends}
+Description: Mapnik implemention of Mapbox Vector Tile specification 
