@@ -20,7 +20,6 @@
 
 #pragma GCC diagnostic push
 #include <mapnik/warning_ignore.hpp>
-#include "boost_geometry_adapters.hpp"
 #include <boost/geometry/core/coordinate_type.hpp>
 #include <boost/geometry/core/access.hpp>
 #pragma GCC diagnostic pop
@@ -219,21 +218,27 @@ struct transform_visitor
             return;
         }
         mapbox::geometry::polygon<std::int64_t> new_geom;
-        mapbox::geometry::linear_ring<std::int64_t> exterior_ring;
-        exterior_ring.reserve(geom.exterior_ring.size());
-        for (auto const& pt : geom.exterior_ring)
+        bool exterior = true;
+        for (auto const& ring : geom)
         {
-            mapbox::geometry::point<std::int64_t> pt2;
-            if (tr_.apply(pt,pt2))
+            if (exterior)
             {
-                exterior_ring.push_back(std::move(pt2));
+                mapbox::geometry::linear_ring<std::int64_t> exterior_ring;
+                exterior_ring.reserve(ring.size());
+                for (auto const& pt : ring)
+                {
+                    mapbox::geometry::point<std::int64_t> pt2;
+                    if (tr_.apply(pt,pt2))
+                    {
+                        exterior_ring.push_back(std::move(pt2));
+                    }
+                }
+                new_geom.push_back(std::move(exterior_ring));
+                exterior = false;
+                continue;
             }
-        }
-        new_geom.push_back(std::move(exterior_ring));
-        for (auto const& ring : geom.interior_rings)
-        {
-            mapnik::box2d<double> ring_bbox = mapnik::geometry::envelope(static_cast<mapnik::geometry::line_string<double> const&>(ring));
-            if (!target_clipping_extent_.intersects(ring_bbox)) 
+            mapnik::box2d<double> ring_bbox = mapnik::geometry::envelope(ring);
+            if (!target_clipping_extent_.intersects(ring_bbox))
             {
                 continue;
             }
@@ -264,20 +269,26 @@ struct transform_visitor
                 continue;
             }
             mapbox::geometry::polygon<std::int64_t> new_poly;
-            mapbox::geometry::linear_ring<std::int64_t> exterior_ring;
-            exterior_ring.reserve(poly.exterior_ring.size());
-            for (auto const& pt : poly.exterior_ring)
+            bool exterior = true;
+            for (auto const& ring : poly)
             {
-                mapbox::geometry::point<std::int64_t> pt2;
-                if (tr_.apply(pt,pt2))
+                if (exterior)
                 {
-                    exterior_ring.push_back(std::move(pt2));
+                    mapbox::geometry::linear_ring<std::int64_t> exterior_ring;
+                    exterior_ring.reserve(ring.size());
+                    for (auto const& pt : ring)
+                    {
+                        mapbox::geometry::point<std::int64_t> pt2;
+                        if (tr_.apply(pt,pt2))
+                        {
+                            exterior_ring.push_back(std::move(pt2));
+                        }
+                    }
+                    new_poly.push_back(std::move(exterior_ring));
+                    exterior = false;
+                    continue;
                 }
-            }
-            new_poly.push_back(std::move(exterior_ring));
-            for (auto const& ring : poly.interior_rings)
-            {
-                mapnik::box2d<double> ring_bbox = mapnik::geometry::envelope(static_cast<mapnik::geometry::line_string<double> const&>(ring));
+                mapnik::box2d<double> ring_bbox = mapnik::geometry::envelope(ring);
                 if (!target_clipping_extent_.intersects(ring_bbox))
                 {
                     continue;
