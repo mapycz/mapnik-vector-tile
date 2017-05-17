@@ -1,0 +1,13 @@
+#!/usr/bin/make -f
+
+override_dh_auto_test:
+ifeq (,$(findstring nocheck,$(DEB_BUILD_OPTIONS)))
+	# The test suite passes only with specific library versions
+	# but the output can be useful.
+	make test || true
+else
+	echo "Tests disabled"
+endif
+
+%:
+	dh $@

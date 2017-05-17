@@ -26,6 +26,11 @@ testpack:
 	tar -ztvf *tgz
 	rm -f ./*tgz
 
+install:
+	install -m 0755 -o root -g root -d $(DESTDIR)/usr/include/mapbox/mapnik-vector-tile
+	install -m 0644 -o root -g root src/*.hpp $(DESTDIR)/usr/include/mapbox/mapnik-vector-tile
+	install -m 0644 -o root -g root src/*.ipp $(DESTDIR)/usr/include/mapbox/mapnik-vector-tile
+
 clean:
 	rm -rf ./build
 
