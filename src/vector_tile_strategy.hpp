@@ -9,11 +9,7 @@
 #include <mapnik/geometry.hpp>
 
 #include <mapnik/version.hpp>
-#if MAPNIK_VERSION >= 300100
-#include <mapnik/geometry/envelope.hpp>
-#else
 #include <mapnik/geometry_envelope.hpp>
-#endif
 
 // mapbox
 #include <mapbox/geometry/geometry.hpp>
