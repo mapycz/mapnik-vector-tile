@@ -27,6 +27,7 @@
 // test utils
 #include "test_utils.hpp"
 #include "geometry_equal.hpp"
+#include "is_valid_simple.hpp"
 
 // std
 #include <cmath>
