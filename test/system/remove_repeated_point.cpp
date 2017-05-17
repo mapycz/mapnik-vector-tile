@@ -6,11 +6,7 @@
 #include <mapnik/version.hpp>
 
 // mapnik
-#if MAPNIK_VERSION >= 300100
-#include <mapnik/geometry/is_empty.hpp>
-#else
 #include <mapnik/geometry_is_empty.hpp>
-#endif
 
 TEST_CASE("vector tile multi_point encoding with repeated points should be removed")
 {

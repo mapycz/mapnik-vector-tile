@@ -16,11 +16,7 @@
 #include <mapnik/map.hpp>
 #include <mapnik/version.hpp>
 
-#if MAPNIK_VERSION >= 300100
-#include <mapnik/geometry/transform.hpp>
-#else
 #include <mapnik/geometry_transform.hpp>
-#endif
 
 // boost
 #include <boost/optional.hpp>

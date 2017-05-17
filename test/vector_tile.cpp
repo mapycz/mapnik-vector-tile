@@ -10,13 +10,8 @@
 #include <mapnik/feature_factory.hpp>
 #include <mapnik/geometry.hpp>
 #include <mapnik/version.hpp>
-#if MAPNIK_VERSION >= 300100
-#include <mapnik/geometry/is_empty.hpp>
-#include <mapnik/geometry/reprojection.hpp>
-#else
 #include <mapnik/geometry_is_empty.hpp>
 #include <mapnik/geometry_reprojection.hpp>
-#endif
 #include <mapnik/image_util.hpp>
 #include <mapnik/load_map.hpp>
 #include <mapnik/memory_datasource.hpp>

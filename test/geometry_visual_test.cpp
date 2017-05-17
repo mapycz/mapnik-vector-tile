@@ -8,13 +8,8 @@
 
 // mapnik
 #include <mapnik/version.hpp>
-#if MAPNIK_VERSION >= 300100
-#include <mapnik/geometry/is_simple.hpp>
-#include <mapnik/geometry/is_valid.hpp>
-#else
 #include <mapnik/geometry_is_simple.hpp>
 #include <mapnik/geometry_is_valid.hpp>
-#endif
 #include <mapnik/json/geometry_parser.hpp>
 #include <mapnik/save_map.hpp>
 #include <mapnik/util/file_io.hpp>
