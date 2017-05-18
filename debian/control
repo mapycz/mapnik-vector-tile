@@ -8,7 +8,9 @@ Build-Depends:
     szn-libmapnik-dev,
     szn-libmapbox-variant-dev,
     szn-libmapbox-geometry-dev,
-    szn-libwagyu-dev
+    szn-libwagyu-dev,
+    libprotobuf-dev,
+    protobuf-compiler
 
 Package: szn-mapnik-vector-tile-dev
 Section: libdevel
