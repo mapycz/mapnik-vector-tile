@@ -64,7 +64,8 @@ public:
     MAPNIK_VECTOR_INLINE void update_tile(tile & t,
                                           double scale_denom = 0.0,
                                           int offset_x = 0,
-                                          int offset_y = 0);
+                                          int offset_y = 0,
+                                          bool style_level_filter = false);
 
     merc_tile create_tile(std::uint64_t x,
                           std::uint64_t y,
@@ -73,10 +74,11 @@ public:
                           std::int32_t buffer_size = 0,
                           double scale_denom = 0.0,
                           int offset_x = 0,
-                          int offset_y = 0)
+                          int offset_y = 0,
+                          bool style_level_filter = false)
     {
         merc_tile t(x, y, z, tile_size, buffer_size);
-        update_tile(t, scale_denom, offset_x, offset_y);
+        update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
     
@@ -85,10 +87,11 @@ public:
                      std::int32_t buffer_size = 0,
                      double scale_denom = 0.0,
                      int offset_x = 0,
-                     int offset_y = 0)
+                     int offset_y = 0,
+                     bool style_level_filter = false)
     {
         tile t(extent, tile_size, buffer_size);
-        update_tile(t, scale_denom, offset_x, offset_y);
+        update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
 

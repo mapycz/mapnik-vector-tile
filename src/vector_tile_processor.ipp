@@ -239,7 +239,8 @@ inline void create_raster_layer(tile_layer & layer,
 MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
                                                  double scale_denom,
                                                  int offset_x,
-                                                 int offset_y)
+                                                 int offset_y,
+                                                 bool style_level_filter)
 {
     // Futures
     std::vector<tile_layer> tile_layers;
@@ -258,7 +259,8 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
                              scale_factor_,
                              scale_denom,
                              offset_x,
-                             offset_y);
+                             offset_y,
+                             style_level_filter);
         if (!tile_layers.back().is_valid())
         {
             t.add_empty_layer(lay.name());
