@@ -13,6 +13,8 @@
 #include <mapnik/feature.hpp>
 #include <mapnik/image_scaling.hpp>
 #include <mapnik/layer.hpp>
+#include <mapnik/feature_type_style.hpp>
+#include <mapnik/rule.hpp>
 #include <mapnik/map.hpp>
 #include <mapnik/version.hpp>
 
@@ -263,6 +265,50 @@ inline void create_raster_layer(tile_layer & layer,
     }
     layer.build(builder);
     return;
+}
+
+inline bool is_active(mapnik::Map const & map,
+                      mapnik::layer const & lay,
+                      double scale_denom)
+{
+    if (!lay.visible(scale_denom))
+    {
+        return false;
+    }
+
+    std::vector<std::string> const & style_names = lay.styles();
+
+    if (style_names.empty())
+    {
+        return false;
+    }
+
+    for (auto const & style_name : style_names)
+    {
+        boost::optional<mapnik::feature_type_style const &> style = map.find_style(style_name);
+
+        if (!style)
+        {
+            continue;
+        }
+
+        if (!style->active(scale_denom))
+        {
+            continue;
+        }
+
+        std::vector<rule> const & style_rules = style->get_rules();
+
+        for (auto const & r : style_rules)
+        {
+            if (r.active(scale_denom))
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
 } // end ns detail
