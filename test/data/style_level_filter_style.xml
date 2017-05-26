@@ -1,0 +1,38 @@
+<Map srs="+init=epsg:3857">
+    <Style name="s1">
+        <Rule>
+            <MaxScaleDenominator>200000</MaxScaleDenominator>
+            <MarkersSymbolizer />
+        </Rule>
+    </Style>
+
+    <Style name="s2">
+        <Rule>
+            <MarkersSymbolizer />
+        </Rule>
+    </Style>
+
+    <Layer name="L1" srs="+init=epsg:3857">
+        <StyleName>s1</StyleName>
+        <Datasource>
+            <Parameter name="type">csv</Parameter>
+            <Parameter name="inline">
+                x, y
+                1, 2
+            </Parameter>
+        </Datasource>
+    </Layer>
+
+    <Layer name="L2" srs="+init=epsg:3857">
+        <StyleName>s1</StyleName>
+        <StyleName>s2</StyleName>
+        <Datasource>
+            <Parameter name="type">csv</Parameter>
+            <Parameter name="inline">
+                x, y
+                3, 4
+                1, 4
+            </Parameter>
+        </Datasource>
+    </Layer>
+</Map>
