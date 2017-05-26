@@ -8,6 +8,8 @@
 #include <mapnik/box2d.hpp>
 #include <mapnik/datasource.hpp>
 #include <mapnik/feature.hpp>
+#include <mapnik/feature_type_style.hpp>
+#include <mapnik/rule.hpp>
 #include <mapnik/layer.hpp>
 #include <mapnik/map.hpp>
 #include <mapnik/projection.hpp>
@@ -95,7 +97,8 @@ public:
                double scale_factor,
                double scale_denom,
                int offset_x,
-               int offset_y)
+               int offset_y,
+               bool style_level_filter = false)
         : valid_(true),
           ds_(lay.datasource()),
           target_proj_(map.srs(), true),
@@ -106,7 +109,7 @@ public:
           layer_extent_(calc_extent(tile_size)),
           target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, buffer_size, lay, map)),
           source_buffered_extent_(calc_source_buffered_extent()),
-          query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, lay)),
+          query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter)),
           view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y),
           empty_(true),
           painted_(false)
@@ -221,7 +224,9 @@ public:
     mapnik::query calc_query(double scale_factor,
                              double scale_denom,
                              mapnik::box2d<double> const& tile_extent_bbox,
-                             mapnik::layer const& lay)
+                             mapnik::Map const& map,
+                             mapnik::layer const& lay,
+                             bool style_level_filter)
     {
         // Adjust the scale denominator if required
         if (scale_denom <= 0.0)
@@ -230,7 +235,7 @@ public:
             scale_denom = mapnik::scale_denominator(scale, target_proj_.is_geographic());
         }
         scale_denom *= scale_factor;
-        if (!lay.visible(scale_denom))
+        if (!is_active(map, lay, scale_denom, style_level_filter))
         {
             valid_ = false;
         }
@@ -286,6 +291,48 @@ public:
             }
         }
         return q;
+    }
+
+    bool is_active(mapnik::Map const & map,
+                   mapnik::layer const & lay,
+                   double scale_denom,
+                   bool style_level_filter)
+    {
+        if (!lay.visible(scale_denom))
+        {
+            return false;
+        }
+
+        if (!style_level_filter)
+        {
+            return true;
+        }
+
+        for (auto const & style_name : lay.styles())
+        {
+            boost::optional<mapnik::feature_type_style const &> style = map.find_style(style_name);
+
+            if (!style)
+            {
+                continue;
+            }
+
+            if (!style->active(scale_denom))
+            {
+                continue;
+            }
+
+            for (auto const & rule : style->get_rules())
+            {
+                if (rule.active(scale_denom))
+                {
+                    // A single active rule is enough to declare the layer active.
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     mapnik::datasource_ptr get_ds() const
