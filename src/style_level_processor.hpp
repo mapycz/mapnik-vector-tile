@@ -18,24 +18,6 @@
 #include <memory>
 #include <stack>
 
-// fwd declaration to avoid dependence on agg headers
-namespace agg { struct trans_affine; }
-
-// fwd declarations to speed up compile
-namespace mapnik {
-  class Map;
-  class feature_impl;
-  class feature_type_style;
-  class label_collision_detector4;
-  class layer;
-  class color;
-  struct marker;
-  class proj_transform;
-  struct rasterizer;
-  struct rgba8_t;
-  template<typename T> class image;
-}
-
 namespace mapnik
 {
 
@@ -69,52 +51,19 @@ public:
     void render_marker(pixel_position const& pos, marker const& marker, agg::trans_affine const& tr,
                        double opacity, composite_mode_e comp_op);
 
-    void process(point_symbolizer const& sym,
+    template <typename Symbolizer>
+    void process(Symbolizer const& sym,
                  mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(line_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(line_pattern_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(polygon_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(polygon_pattern_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(raster_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(shield_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(text_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(building_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(markers_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(group_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(debug_symbolizer const& sym,
-                 feature_impl & feature,
-                 proj_transform const& prj_trans);
-    void process(dot_symbolizer const& sym,
-                 mapnik::feature_impl & feature,
-                 proj_transform const& prj_trans);
+                 proj_transform const& prj_trans)
+    {
+        MAPNIK_LOG_ERROR(style_level_processor) << "style_level_processor should not process individual symbolizer.";
+    }
 
     inline bool process(rule::symbolizers const&,
                         mapnik::feature_impl&,
                         proj_transform const& )
     {
-        // agg renderer doesn't support processing of multiple symbolizers.
-        return false;
+        return true;
     }
 
     void painted(bool painted);
@@ -134,21 +83,8 @@ public:
     {
         return common_.vars_;
     }
-protected:
-    template <typename R>
-    void debug_draw_box(R& buf, box2d<double> const& extent,
-                        double x, double y, double angle = 0.0);
-    void debug_draw_box(box2d<double> const& extent,
-                        double x, double y, double angle = 0.0);
-    void draw_geo_extent(box2d<double> const& extent,mapnik::color const& color);
 
 private:
-    std::stack<std::reference_wrapper<buffer_type>> buffers_;
-    buffer_stack<buffer_type> internal_buffers_;
-    std::unique_ptr<buffer_type> inflated_buffer_;
-    const std::unique_ptr<rasterizer> ras_ptr;
-    gamma_method_enum gamma_method_;
-    double gamma_;
     renderer_common common_;
     void setup(Map const & m, buffer_type & pixmap);
 };
