@@ -39,9 +39,11 @@ inline void create_geom_layer(tile_layer & layer,
                               polygon_fill_type fill_type,
                               bool strictly_simple,
                               bool multi_polygon_union,
-                              bool process_all_rings)
+                              bool process_all_rings,
+                              bool style_level_filter)
 {
     layer_builder_pbf builder(layer.name(), layer.layer_extent(), layer.get_data());
+    std::vector<mapnik::rule_cache> active_rules(layer.get_active_rules());
 
     // query for the features
     mapnik::featureset_ptr features = layer.get_features();
@@ -60,6 +62,19 @@ inline void create_geom_layer(tile_layer & layer,
     
     using encoding_process = mapnik::vector_tile_impl::geometry_to_feature_pbf_visitor;
     using clipping_process = mapnik::vector_tile_impl::geometry_clipper<encoding_process>;
+
+    mapnik::vector_tile_impl::vector_tile_strategy vs(layer.get_view_transform());
+    mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
+    const mapnik::geometry::point<double> p1_min(buffered_extent.minx(), buffered_extent.miny());
+    const mapnik::geometry::point<double> p1_max(buffered_extent.maxx(), buffered_extent.maxy());
+    const mapnik::geometry::point<std::int64_t> p2_min = mapnik::geometry::transform<std::int64_t>(p1_min, vs);
+    const mapnik::geometry::point<std::int64_t> p2_max = mapnik::geometry::transform<std::int64_t>(p1_max, vs);
+    const double minx = std::min(p2_min.x, p2_max.x);
+    const double maxx = std::max(p2_min.x, p2_max.x);
+    const double miny = std::min(p2_min.y, p2_max.y);
+    const double maxy = std::max(p2_min.y, p2_max.y);
+    const mapnik::box2d<int> tile_clipping_extent(minx, miny, maxx, maxy);
+
     if (simplify_distance > 0)
     {
         using simplifier_process = mapnik::vector_tile_impl::geometry_simplifier<clipping_process>;
@@ -67,31 +82,23 @@ inline void create_geom_layer(tile_layer & layer,
         {
             using strategy_type = mapnik::vector_tile_impl::vector_tile_strategy;
             using transform_type = mapnik::vector_tile_impl::transform_visitor<strategy_type, simplifier_process>;
-            strategy_type vs(layer.get_view_transform());
-            mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
-            mapnik::geometry::point<double> p1_min(buffered_extent.minx(), buffered_extent.miny());
-            mapnik::geometry::point<double> p1_max(buffered_extent.maxx(), buffered_extent.maxy());
-            mapnik::geometry::point<std::int64_t> p2_min = mapnik::geometry::transform<std::int64_t>(p1_min, vs);
-            mapnik::geometry::point<std::int64_t> p2_max = mapnik::geometry::transform<std::int64_t>(p1_max, vs);
-            double minx = std::min(p2_min.x, p2_max.x);
-            double maxx = std::max(p2_min.x, p2_max.x);
-            double miny = std::min(p2_min.y, p2_max.y);
-            double maxy = std::max(p2_min.y, p2_max.y);
-            mapnik::box2d<int> tile_clipping_extent(minx, miny, maxx, maxy);
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                simplifier_process simplifier(simplify_distance, clipper);
-                transform_type transformer(vs, buffered_extent, simplifier);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    simplifier_process simplifier(simplify_distance, clipper);
+                    transform_type transformer(vs, buffered_extent, simplifier);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -99,33 +106,25 @@ inline void create_geom_layer(tile_layer & layer,
         {
             using strategy_type = mapnik::vector_tile_impl::vector_tile_strategy_proj;
             using transform_type = mapnik::vector_tile_impl::transform_visitor<strategy_type, simplifier_process>;
-            mapnik::vector_tile_impl::vector_tile_strategy vs(layer.get_view_transform());
-            mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
-            mapnik::geometry::point<double> p1_min(buffered_extent.minx(), buffered_extent.miny());
-            mapnik::geometry::point<double> p1_max(buffered_extent.maxx(), buffered_extent.maxy());
-            mapnik::geometry::point<std::int64_t> p2_min = mapnik::geometry::transform<std::int64_t>(p1_min, vs);
-            mapnik::geometry::point<std::int64_t> p2_max = mapnik::geometry::transform<std::int64_t>(p1_max, vs);
-            double minx = std::min(p2_min.x, p2_max.x);
-            double maxx = std::max(p2_min.x, p2_max.x);
-            double miny = std::min(p2_min.y, p2_max.y);
-            double maxy = std::max(p2_min.y, p2_max.y);
-            mapnik::box2d<int> tile_clipping_extent(minx, miny, maxx, maxy);
             strategy_type vs2(layer.get_proj_transform(), layer.get_view_transform());
             mapnik::box2d<double> const& trans_buffered_extent = layer.get_source_buffered_extent();
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                simplifier_process simplifier(simplify_distance, clipper);
-                transform_type transformer(vs2, trans_buffered_extent, simplifier);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    simplifier_process simplifier(simplify_distance, clipper);
+                    transform_type transformer(vs2, trans_buffered_extent, simplifier);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -136,30 +135,22 @@ inline void create_geom_layer(tile_layer & layer,
         {
             using strategy_type = mapnik::vector_tile_impl::vector_tile_strategy;
             using transform_type = mapnik::vector_tile_impl::transform_visitor<strategy_type, clipping_process>;
-            strategy_type vs(layer.get_view_transform());
-            mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
-            mapnik::geometry::point<double> p1_min(buffered_extent.minx(), buffered_extent.miny());
-            mapnik::geometry::point<double> p1_max(buffered_extent.maxx(), buffered_extent.maxy());
-            mapnik::geometry::point<std::int64_t> p2_min = mapnik::geometry::transform<std::int64_t>(p1_min, vs);
-            mapnik::geometry::point<std::int64_t> p2_max = mapnik::geometry::transform<std::int64_t>(p1_max, vs);
-            double minx = std::min(p2_min.x, p2_max.x);
-            double maxx = std::max(p2_min.x, p2_max.x);
-            double miny = std::min(p2_min.y, p2_max.y);
-            double maxy = std::max(p2_min.y, p2_max.y);
-            mapnik::box2d<int> tile_clipping_extent(minx, miny, maxx, maxy);
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                transform_type transformer(vs, buffered_extent, clipper);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    transform_type transformer(vs, buffered_extent, clipper);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -167,32 +158,24 @@ inline void create_geom_layer(tile_layer & layer,
         {
             using strategy_type = mapnik::vector_tile_impl::vector_tile_strategy_proj;
             using transform_type = mapnik::vector_tile_impl::transform_visitor<strategy_type, clipping_process>;
-            mapnik::vector_tile_impl::vector_tile_strategy vs(layer.get_view_transform());
-            mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
-            mapnik::geometry::point<double> p1_min(buffered_extent.minx(), buffered_extent.miny());
-            mapnik::geometry::point<double> p1_max(buffered_extent.maxx(), buffered_extent.maxy());
-            mapnik::geometry::point<std::int64_t> p2_min = mapnik::geometry::transform<std::int64_t>(p1_min, vs);
-            mapnik::geometry::point<std::int64_t> p2_max = mapnik::geometry::transform<std::int64_t>(p1_max, vs);
-            double minx = std::min(p2_min.x, p2_max.x);
-            double maxx = std::max(p2_min.x, p2_max.x);
-            double miny = std::min(p2_min.y, p2_max.y);
-            double maxy = std::max(p2_min.y, p2_max.y);
-            mapnik::box2d<int> tile_clipping_extent(minx, miny, maxx, maxy);
             strategy_type vs2(layer.get_proj_transform(), layer.get_view_transform());
             mapnik::box2d<double> const& trans_buffered_extent = layer.get_source_buffered_extent();
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                transform_type transformer(vs2, trans_buffered_extent, clipper);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    transform_type transformer(vs2, trans_buffered_extent, clipper);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -308,7 +291,8 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
                                           fill_type_,
                                           strictly_simple_,
                                           multi_polygon_union_,
-                                          process_all_rings_
+                                          process_all_rings_,
+                                          style_level_filter
                                          );
             }
             else // Raster
@@ -338,7 +322,8 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
                                         fill_type_,
                                         strictly_simple_,
                                         multi_polygon_union_,
-                                        process_all_rings_
+                                        process_all_rings_,
+                                        style_level_filter
                             ));
             }
             else // Raster
