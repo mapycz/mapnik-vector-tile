@@ -43,9 +43,11 @@ inline void create_geom_layer(tile_layer & layer,
                               polygon_fill_type fill_type,
                               bool strictly_simple,
                               bool multi_polygon_union,
-                              bool process_all_rings)
+                              bool process_all_rings,
+                              bool style_level_filter)
 {
     layer_builder_pbf builder(layer.name(), layer.layer_extent(), layer.get_data());
+    std::vector<mapnik::rule_cache> active_rules(layer.get_active_rules());
 
     // query for the features
     mapnik::featureset_ptr features = layer.get_features();
@@ -86,18 +88,21 @@ inline void create_geom_layer(tile_layer & layer,
             using transform_type = mapnik::vector_tile_impl::transform_visitor<strategy_type, simplifier_process>;
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                simplifier_process simplifier(simplify_distance, clipper);
-                transform_type transformer(vs, buffered_extent, simplifier);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    simplifier_process simplifier(simplify_distance, clipper);
+                    transform_type transformer(vs, buffered_extent, simplifier);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -109,18 +114,21 @@ inline void create_geom_layer(tile_layer & layer,
             mapnik::box2d<double> const& trans_buffered_extent = layer.get_source_buffered_extent();
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                simplifier_process simplifier(simplify_distance, clipper);
-                transform_type transformer(vs2, trans_buffered_extent, simplifier);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    simplifier_process simplifier(simplify_distance, clipper);
+                    transform_type transformer(vs2, trans_buffered_extent, simplifier);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -133,17 +141,20 @@ inline void create_geom_layer(tile_layer & layer,
             using transform_type = mapnik::vector_tile_impl::transform_visitor<strategy_type, clipping_process>;
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                transform_type transformer(vs, buffered_extent, clipper);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    transform_type transformer(vs, buffered_extent, clipper);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -155,17 +166,20 @@ inline void create_geom_layer(tile_layer & layer,
             mapnik::box2d<double> const& trans_buffered_extent = layer.get_source_buffered_extent();
             while (feature)
             {
-                mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                encoding_process encoder(*feature, builder);
-                clipping_process clipper(tile_clipping_extent, 
-                                         area_threshold, 
-                                         strictly_simple, 
-                                         multi_polygon_union, 
-                                         fill_type,
-                                         process_all_rings,
-                                         encoder);
-                transform_type transformer(vs2, trans_buffered_extent, clipper);
-                mapnik::util::apply_visitor(transformer, geom);
+                if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
+                {
+                    mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
+                    encoding_process encoder(*feature, builder);
+                    clipping_process clipper(tile_clipping_extent,
+                                             area_threshold,
+                                             strictly_simple,
+                                             multi_polygon_union,
+                                             fill_type,
+                                             process_all_rings,
+                                             encoder);
+                    transform_type transformer(vs2, trans_buffered_extent, clipper);
+                    mapnik::util::apply_visitor(transformer, geom);
+                }
                 feature = features->next();
             }
         }
@@ -281,7 +295,8 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
                                           fill_type_,
                                           strictly_simple_,
                                           multi_polygon_union_,
-                                          process_all_rings_
+                                          process_all_rings_,
+                                          style_level_filter
                                          );
             }
             else // Raster
@@ -311,7 +326,8 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
                                         fill_type_,
                                         strictly_simple_,
                                         multi_polygon_union_,
-                                        process_all_rings_
+                                        process_all_rings_,
+                                        style_level_filter
                             ));
             }
             else // Raster

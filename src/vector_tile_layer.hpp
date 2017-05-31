@@ -17,6 +17,8 @@
 #include <mapnik/scale_denominator.hpp>
 #include <mapnik/value.hpp>
 #include <mapnik/view_transform.hpp>
+#include <mapnik/rule_cache.hpp>
+#include <mapnik/expression_evaluator.hpp>
 
 // protozero
 #include <protozero/pbf_writer.hpp>
@@ -74,6 +76,9 @@ class tile_layer
 {
 private:
     bool valid_;
+    mapnik::Map const& map_;
+    mapnik::layer const& layer_;
+    double scale_denom_;
     mapnik::datasource_ptr ds_;
     mapnik::projection target_proj_;
     mapnik::projection source_proj_;
@@ -100,6 +105,9 @@ public:
                int offset_y,
                bool style_level_filter = false)
         : valid_(true),
+          map_(map),
+          layer_(lay),
+          scale_denom_(scale_denom),
           ds_(lay.datasource()),
           target_proj_(map.srs(), true),
           source_proj_(lay.srs(), true),
@@ -119,6 +127,9 @@ public:
 
     tile_layer(tile_layer && rhs)
         : valid_(std::move(rhs.valid_)),
+          map_(std::move(rhs.map_)),
+          layer_(std::move(rhs.layer_)),
+          scale_denom_(std::move(rhs.scale_denom_)),
           ds_(std::move(rhs.ds_)),
           target_proj_(std::move(rhs.target_proj_)),
           source_proj_(std::move(rhs.source_proj_)),
@@ -239,6 +250,7 @@ public:
         {
             valid_ = false;
         }
+        scale_denom_ = scale_denom;
 
         mapnik::box2d<double> query_extent(lay.envelope()); // source projection
 
@@ -332,6 +344,70 @@ public:
             }
         }
 
+        return false;
+    }
+
+    std::vector<mapnik::rule_cache> get_active_rules() const
+    {
+        std::vector<mapnik::rule_cache> active_rules;
+
+        for (auto const & style_name : layer_.styles())
+        {
+            boost::optional<mapnik::feature_type_style const &> style = map_.find_style(style_name);
+
+            if (!style)
+            {
+                continue;
+            }
+
+            if (!style->active(scale_denom_))
+            {
+                continue;
+            }
+
+            active_rules.emplace_back();
+            bool has_active_rules = false;
+            for (auto const & rule : style->get_rules())
+            {
+                if (rule.active(scale_denom_))
+                {
+                    has_active_rules = true;
+                    active_rules.back().add_rule(rule);
+                }
+            }
+            if (!has_active_rules)
+            {
+                active_rules.pop_back();
+            }
+        }
+
+        return active_rules;
+    }
+
+    bool evaluate_feature(feature_impl const & feature,
+                          std::vector<mapnik::rule_cache> const & active_rules) const
+    {
+        // TODO: accept vars
+        mapnik::attributes vars;
+
+        for (auto const & rc : active_rules)
+        {
+            for (mapnik::rule const* r : rc.get_if_rules())
+            {
+                expression_ptr const& expr = r->get_filter();
+                mapnik::value result = mapnik::util::apply_visitor(
+                    mapnik::evaluate<feature_impl, value_type, attributes>(feature, vars), *expr);
+                if (result.to_bool())
+                {
+                    return true;
+                }
+            }
+
+            if (rc.get_else_rules().size() > 0)
+            {
+                return true;
+            }
+        }
         return false;
     }
 
