@@ -1,6 +1,8 @@
 <Map srs="+init=epsg:3857">
     <Style name="s1">
         <Rule>
+            <MaxScaleDenominator>200000</MaxScaleDenominator>
+            <MinScaleDenominator>100000</MinScaleDenominator>
             <Filter>[id] = 10</Filter>
             <MarkersSymbolizer />
         </Rule>

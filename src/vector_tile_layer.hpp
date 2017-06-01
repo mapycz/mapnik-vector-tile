@@ -329,18 +329,9 @@ public:
                 continue;
             }
 
-            if (!style->active(scale_denom))
+            if (style->active(scale_denom))
             {
-                continue;
-            }
-
-            for (auto const & rule : style->get_rules())
-            {
-                if (rule.active(scale_denom))
-                {
-                    // A single active rule is enough to declare the layer active.
-                    return true;
-                }
+                return true;
             }
         }
 
@@ -360,13 +351,9 @@ public:
                 continue;
             }
 
-            if (!style->active(scale_denom_))
-            {
-                continue;
-            }
-
             active_rules.emplace_back();
             bool has_active_rules = false;
+
             for (auto const & rule : style->get_rules())
             {
                 if (rule.active(scale_denom_))
@@ -375,6 +362,7 @@ public:
                     active_rules.back().add_rule(rule);
                 }
             }
+
             if (!has_active_rules)
             {
                 active_rules.pop_back();
