@@ -62,6 +62,7 @@ public:
           threading_mode_(std::launch::deferred) {}
 
     MAPNIK_VECTOR_INLINE void update_tile(tile & t,
+                                          boost::optional<std::int32_t> buffer_size = boost::none,
                                           double scale_denom = 0.0,
                                           int offset_x = 0,
                                           int offset_y = 0,
@@ -71,27 +72,27 @@ public:
                           std::uint64_t y,
                           std::uint64_t z,
                           std::uint32_t tile_size = 4096,
-                          std::int32_t buffer_size = 0,
+                          boost::optional<std::int32_t> buffer_size = boost::none,
                           double scale_denom = 0.0,
                           int offset_x = 0,
                           int offset_y = 0,
                           bool style_level_filter = false)
     {
-        merc_tile t(x, y, z, tile_size, buffer_size);
-        update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
+        merc_tile t(x, y, z, tile_size, buffer_size ? *buffer_size : 0);
+        update_tile(t, buffer_size, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
     
     tile create_tile(mapnik::box2d<double> const & extent,
                      std::uint32_t tile_size = 4096,
-                     std::int32_t buffer_size = 0,
+                     boost::optional<std::int32_t> buffer_size = boost::none,
                      double scale_denom = 0.0,
                      int offset_x = 0,
                      int offset_y = 0,
                      bool style_level_filter = false)
     {
-        tile t(extent, tile_size, buffer_size);
-        update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
+        tile t(extent, tile_size, buffer_size ? *buffer_size : 0);
+        update_tile(t, buffer_size, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
 
