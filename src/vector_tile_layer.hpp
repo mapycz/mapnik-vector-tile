@@ -98,7 +98,7 @@ public:
                mapnik::layer const& lay,
                mapnik::box2d<double> const& tile_extent_bbox,
                std::uint32_t tile_size,
-               boost::optional<std::int32_t> buffer_size,
+               std::int32_t buffer_size,
                double scale_factor,
                double scale_denom,
                int offset_x,
@@ -176,18 +176,8 @@ public:
         return layer_extent;
     }
 
-    void apply_buffer_size(double & buffer_padding, int buffer_size) const
-    {
-        buffer_padding *= buffer_size * static_cast<double>(layer_extent_);
-
-        if (!ds_ || ds_->type() == datasource::Vector)
-        {
-            buffer_padding /= VT_LEGACY_IMAGE_SIZE;
-        }
-    }
-
     mapnik::box2d<double> calc_target_buffered_extent(mapnik::box2d<double> const& tile_extent_bbox,
-                                               boost::optional<std::int32_t> buffer_size,
+                                               std::int32_t buffer_size,
                                                mapnik::layer const& lay,
                                                mapnik::Map const& map) const
     {
@@ -197,15 +187,18 @@ public:
         boost::optional<int> layer_buffer_size = lay.buffer_size();
         if (layer_buffer_size) // if layer overrides buffer size, use this value to compute buffered extent
         {
-            apply_buffer_size(buffer_padding, *layer_buffer_size);
+            if (!ds_ || ds_->type() == datasource::Vector)
+            {
+                buffer_padding *= (*layer_buffer_size) * (static_cast<double>(layer_extent_) / VT_LEGACY_IMAGE_SIZE);
+            }
+            else
+            {
+                buffer_padding *= (*layer_buffer_size) * (static_cast<double>(layer_extent_));
+            }
         }
-        else if (buffer_size)
+        else
         {
-            buffer_padding *= *buffer_size;
-        }
-        else // If no buffer size provided, use buffer size of the Map
-        {
-            apply_buffer_size(buffer_padding, map.buffer_size());
+            buffer_padding *= buffer_size;
         }
         double buffered_width = ext.width() + buffer_padding;
         double buffered_height = ext.height() + buffer_padding;
