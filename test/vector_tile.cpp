@@ -299,6 +299,35 @@ TEST_CASE("map buffer size from style")
         vector_tile::Tile tile;
         REQUIRE(tile.ParseFromString(out_tile.get_buffer()));
         REQUIRE(1 == tile.layers_size());
+        CHECK(2 == tile.layers(0).features_size());
+    }
+}
+TEST_CASE("map buffer size from style can be overridden by processor parameter")
+{
+    mapnik::Map map(256, 256);
+    mapnik::load_map(map, "test/data/styles/map_buffer_size.xml");
+    mapnik::vector_tile_impl::processor ren(map);
+
+    {
+        mapnik::vector_tile_impl::tile out_tile = ren.create_tile(
+            2048, 2047, 12, 4096, 0);
+
+        mapnik::box2d<double> const& extent_act = out_tile.extent();
+        mapnik::box2d<double> extent_ref(0, 0, 9783.9396205, 9783.9396205);
+        CHECK(extent_act.minx() == Approx(extent_ref.minx()));
+        CHECK(extent_act.miny() == Approx(extent_ref.miny()));
+        CHECK(extent_act.maxx() == Approx(extent_ref.maxx()));
+        CHECK(extent_act.maxy() == Approx(extent_ref.maxy()));
+
+        mapnik::box2d<double> const& buffered_extent_act = out_tile.get_buffered_extent();
+        CHECK(buffered_extent_act.minx() == Approx(extent_ref.minx()));
+        CHECK(buffered_extent_act.miny() == Approx(extent_ref.miny()));
+        CHECK(buffered_extent_act.maxx() == Approx(extent_ref.maxx()));
+        CHECK(buffered_extent_act.maxy() == Approx(extent_ref.maxy()));
+
+        vector_tile::Tile tile;
+        REQUIRE(tile.ParseFromString(out_tile.get_buffer()));
+        REQUIRE(1 == tile.layers_size());
         CHECK(1 == tile.layers(0).features_size());
     }
 }

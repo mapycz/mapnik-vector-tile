@@ -1,0 +1,12 @@
+<Map buffer-size="128" srs="+init=epsg:3857">
+    <Layer name="1" srs="+init=epsg:3857">
+        <Datasource>
+            <Parameter name="type">csv</Parameter>
+            <Parameter name="inline">
+                 x,  y
+                 1,  2
+                -1, -1
+            </Parameter>
+        </Datasource>
+    </Layer>
+</Map>
