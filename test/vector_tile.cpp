@@ -265,3 +265,40 @@ TEST_CASE("vector tile transform2 -- should not throw reprojected data from loca
         mapnik::save_to_file(im,"test/fixtures/transform-actual-2.png","png32");
     }
 }
+
+TEST_CASE("map buffer size from style")
+{
+    mapnik::Map map(256, 256);
+    mapnik::load_map(map, "test/data/styles/map_buffer_size.xml");
+    mapnik::vector_tile_impl::processor ren(map);
+
+    {
+        mapnik::vector_tile_impl::tile out_tile = ren.create_tile(
+            2048, 2047, 12, 4096, boost::none);
+
+        {
+            mapnik::box2d<double> const& extent_act = out_tile.extent();
+            mapnik::box2d<double> extent_ref(0, 0, 9783.9396205, 9783.9396205);
+            CHECK(extent_act.minx() == Approx(extent_ref.minx()));
+            CHECK(extent_act.miny() == Approx(extent_ref.miny()));
+            CHECK(extent_act.maxx() == Approx(extent_ref.maxx()));
+            CHECK(extent_act.maxy() == Approx(extent_ref.maxy()));
+        }
+
+        {
+            mapnik::box2d<double> const& buffered_extent_act = out_tile.get_buffered_extent();
+            mapnik::box2d<double> buffered_extent_ref(
+                -4891.9698102513, -4891.969810252,
+                14675.9094307538, 14675.9094307534);
+            CHECK(buffered_extent_act.minx() == Approx(buffered_extent_ref.minx()));
+            CHECK(buffered_extent_act.miny() == Approx(buffered_extent_ref.miny()));
+            CHECK(buffered_extent_act.maxx() == Approx(buffered_extent_ref.maxx()));
+            CHECK(buffered_extent_act.maxy() == Approx(buffered_extent_ref.maxy()));
+        }
+
+        vector_tile::Tile tile;
+        REQUIRE(tile.ParseFromString(out_tile.get_buffer()));
+        REQUIRE(1 == tile.layers_size());
+        CHECK(1 == tile.layers(0).features_size());
+    }
+}

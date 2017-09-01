@@ -47,6 +47,16 @@ private:
     bool process_all_rings_;
     std::launch threading_mode_;
 
+    std::int32_t get_buffer_size(std::uint32_t tile_size,
+                                 boost::optional<std::int32_t> const& buffer_size)
+    {
+        if (buffer_size)
+        {
+            return *buffer_size;
+        }
+        return static_cast<std::int64_t>(tile_size) * m_.buffer_size() / VT_LEGACY_IMAGE_SIZE;
+    }
+
 public:
     processor(mapnik::Map const& map)
         : m_(map),
@@ -71,26 +81,26 @@ public:
                           std::uint64_t y,
                           std::uint64_t z,
                           std::uint32_t tile_size = 4096,
-                          std::int32_t buffer_size = 0,
+                          boost::optional<std::int32_t> buffer_size = boost::none,
                           double scale_denom = 0.0,
                           int offset_x = 0,
                           int offset_y = 0,
                           bool style_level_filter = false)
     {
-        merc_tile t(x, y, z, tile_size, buffer_size);
+        merc_tile t(x, y, z, tile_size, get_buffer_size(tile_size, buffer_size));
         update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
     
     tile create_tile(mapnik::box2d<double> const & extent,
                      std::uint32_t tile_size = 4096,
-                     std::int32_t buffer_size = 0,
+                     boost::optional<std::int32_t> buffer_size = boost::none,
                      double scale_denom = 0.0,
                      int offset_x = 0,
                      int offset_y = 0,
                      bool style_level_filter = false)
     {
-        tile t(extent, tile_size, buffer_size);
+        tile t(extent, tile_size, get_buffer_size(tile_size, buffer_size));
         update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
