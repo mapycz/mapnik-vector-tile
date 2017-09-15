@@ -20,18 +20,18 @@ void merge_from_buffer(merc_tile & t,
                        const char * data,
                        std::size_t size,
                        bool validate = false,
-                       bool upgrade = false)
+                       bool upgrade = false);
 
 void merge_from_compressed_buffer(merc_tile & t,
                                   const char * data,
                                   std::size_t size,
                                   bool validate = false,
-                                  bool upgrade = false)
+                                  bool upgrade = false);
 
 void add_image_buffer_as_tile_layer(merc_tile & t,
                                     std::string const& layer_name,
                                     const char * data,
-                                    std::size_t size)
+                                    std::size_t size);
 
 } // end ns vector_tile_impl
 

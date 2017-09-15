@@ -18,7 +18,6 @@
 // std
 #include <set>
 #include <string>
-#include <memory>
 
 namespace mapnik
 {
@@ -48,7 +47,7 @@ std::pair<std::string,std::uint32_t> get_layer_name_and_version(protozero::pbf_r
     return std::make_pair(name,version);
 }
 
-void merge_from_buffer(merc_tile & t, const char * data, std::size_t size, bool validate = false, bool upgrade = false)
+void merge_from_buffer(merc_tile & t, const char * data, std::size_t size, bool validate, bool upgrade)
 {
     using ds_ptr = std::shared_ptr<mapnik::vector_tile_impl::tile_datasource_pbf>;
     protozero::pbf_reader tile_msg(data, size);
@@ -134,7 +133,7 @@ void merge_from_buffer(merc_tile & t, const char * data, std::size_t size, bool 
     t.buffer_size(prev_buffer_size);
 }
 
-void merge_from_compressed_buffer(merc_tile & t, const char * data, std::size_t size, bool validate = false, bool upgrade = false)
+void merge_from_compressed_buffer(merc_tile & t, const char * data, std::size_t size, bool validate, bool upgrade)
 {
     if (mapnik::vector_tile_impl::is_gzip_compressed(data,size) ||
         mapnik::vector_tile_impl::is_zlib_compressed(data,size))

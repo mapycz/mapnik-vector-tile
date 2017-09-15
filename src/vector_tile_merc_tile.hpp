@@ -5,6 +5,9 @@
 #include "vector_tile_tile.hpp"
 #include "vector_tile_projection.hpp"
 
+// std
+#include <memory>
+
 namespace mapnik
 {
 
