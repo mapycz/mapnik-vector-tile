@@ -103,7 +103,8 @@ public:
                double scale_denom,
                int offset_x,
                int offset_y,
-               bool style_level_filter = false)
+               bool style_level_filter,
+               mapnik::attributes const& vars)
         : valid_(true),
           map_(map),
           layer_(lay),
@@ -117,7 +118,7 @@ public:
           layer_extent_(calc_extent(tile_size)),
           target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, buffer_size, lay, map)),
           source_buffered_extent_(calc_source_buffered_extent()),
-          query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter)),
+          query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter, vars)),
           view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y),
           empty_(true),
           painted_(false)
@@ -237,7 +238,8 @@ public:
                              mapnik::box2d<double> const& tile_extent_bbox,
                              mapnik::Map const& map,
                              mapnik::layer const& lay,
-                             bool style_level_filter)
+                             bool style_level_filter,
+                             mapnik::attributes const& vars)
     {
         // Adjust the scale denominator if required
         if (scale_denom <= 0.0)
@@ -253,6 +255,14 @@ public:
         scale_denom_ = scale_denom;
 
         mapnik::box2d<double> query_extent(lay.envelope()); // source projection
+        mapnik::box2d<double> unbuffered_query_extent(tile_extent_bbox);
+        if (!prj_trans_.equal())
+        {
+            if (!prj_trans_.forward(unbuffered_query_extent, PROJ_ENVELOPE_POINTS))
+            {
+                throw std::runtime_error("vector_tile_processor: unbuffered query extent did not reproject back to map projection");
+            }
+        }
 
         // first, try intersection of map extent forward projected into layer srs
         if (source_buffered_extent_.intersects(query_extent))
@@ -272,7 +282,7 @@ public:
             // forward project layer extent back into native projection
             if (!prj_trans_.forward(query_extent, PROJ_ENVELOPE_POINTS))
             {
-                throw std::runtime_error("vector_tile_processor: layer extent did not repoject back to map projection");
+                throw std::runtime_error("vector_tile_processor: query extent did not reproject back to map projection");
             }
         }
         else
@@ -280,8 +290,8 @@ public:
             // if no intersection then nothing to do for layer
             valid_ = false;    
         }
-        double qw = query_extent.width() > 0 ? query_extent.width() : 1;
-        double qh = query_extent.height() > 0 ? query_extent.height() : 1;
+        double qw = unbuffered_query_extent.width() > 0 ? unbuffered_query_extent.width() : 1;
+        double qh = unbuffered_query_extent.height() > 0 ? unbuffered_query_extent.height() : 1;
         if (!ds_ || ds_->type() == datasource::Vector)
         {
             qw = VT_LEGACY_IMAGE_SIZE / qw;
@@ -293,7 +303,7 @@ public:
             qh = static_cast<double>(layer_extent_) / qh;
         }
         mapnik::query::resolution_type res(qw, qh);
-        mapnik::query q(query_extent, res, scale_denom, tile_extent_bbox);
+        mapnik::query q(query_extent, res, scale_denom, unbuffered_query_extent);
         if (ds_)
         {
             mapnik::layer_descriptor lay_desc = ds_->get_descriptor();
@@ -302,6 +312,7 @@ public:
                 q.add_property_name(desc.get_name());
             }
         }
+        q.set_variables(vars);
         return q;
     }
 
@@ -407,6 +418,11 @@ public:
     mapnik::featureset_ptr get_features() const
     {
         return ds_->features(query_);
+    }
+
+    mapnik::query const& get_query() const
+    {
+        return query_;
     }
 
     mapnik::view_transform const& get_view_transform() const

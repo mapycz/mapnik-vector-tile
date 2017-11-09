@@ -37,25 +37,25 @@
         "<(SHARED_INTERMEDIATE_DIR)/vector_tile.pb.cc"
       ],
       'include_dirs': [
-        '<(SHARED_INTERMEDIATE_DIR)/',
+        '<(SHARED_INTERMEDIATE_DIR)/'
       ],
       'cflags_cc' : [
           '-D_THREAD_SAFE',
-          '<!@(mapnik-config --cflags)', # assume protobuf headers are here
+          '<!@(mapnik-config --cflags)',
           '-Wno-sign-compare',
           '-Wno-sign-conversion'
       ],
       'xcode_settings': {
         'OTHER_CPLUSPLUSFLAGS':[
            '-D_THREAD_SAFE',
-           '<!@(mapnik-config --cflags)', # assume protobuf headers are here
+           '<!@(mapnik-config --cflags)',
            '-Wno-sign-compare',
            '-Wno-sign-conversion'
         ],
       },
       'direct_dependent_settings': {
         'include_dirs': [
-          '<(SHARED_INTERMEDIATE_DIR)/',
+          '<(SHARED_INTERMEDIATE_DIR)/'
         ],
         'libraries':[
           '-lprotobuf-lite'
@@ -91,7 +91,7 @@
       },
       'direct_dependent_settings': {
         'include_dirs': [
-          '<(SHARED_INTERMEDIATE_DIR)/',
+          '<(SHARED_INTERMEDIATE_DIR)/'
         ],
         'defines' : [
           "<@(common_defines)"
@@ -193,21 +193,6 @@
       ]
     },
     {
-      "target_name": "vtile-fuzz",
-      'dependencies': [ 'mapnik_vector_tile_impl' ],
-      "type": "executable",
-      "defines": [
-        "<@(common_defines)",
-        "MAPNIK_PLUGINDIR=<(MAPNIK_PLUGINDIR)"
-      ],
-      "sources": [
-        "../bin/vtile-fuzz.cpp"
-      ],
-      "include_dirs": [
-        "../src",
-      ]
-    },
-    {
       "target_name": "tileinfo",
       'dependencies': [ 'vector_tile' ],
       "type": "executable",
@@ -224,12 +209,12 @@
       ],
       'cflags_cc' : [
           '-D_THREAD_SAFE',
-          '<!@(mapnik-config --cflags)' # assume protobuf headers are here
+          '<!@(mapnik-config --cflags)'
       ],
       'xcode_settings': {
         'OTHER_CPLUSPLUSFLAGS':[
            '-D_THREAD_SAFE',
-           '<!@(mapnik-config --cflags)' # assume protobuf headers are here
+           '<!@(mapnik-config --cflags)'
         ],
       }
     }    

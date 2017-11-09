@@ -1,24 +1,23 @@
-MAPNIK_PLUGINDIR = $(shell mapnik-config --input-plugins)
-BUILDTYPE ?= Release
-
 GYP_REVISION=3464008
 
-all: libvtile
+default: build/Makefile
+
+pre_build_check:
+	@echo "Looking for mapnik-config on your PATH..."
+	mapnik-config -v
 
 ./deps/gyp:
 	git clone https://chromium.googlesource.com/external/gyp.git ./deps/gyp && cd ./deps/gyp && git checkout $(GYP_REVISION)
 
-build/Makefile: ./deps/gyp gyp/build.gyp test/*
-	deps/gyp/gyp gyp/build.gyp --depth=. -DMAPNIK_PLUGINDIR=\"$(MAPNIK_PLUGINDIR)\" -Goutput_dir=. --generator-output=./build -f make
+build/Makefile: pre_build_check ./deps/gyp gyp/build.gyp test/*
+	deps/gyp/gyp gyp/build.gyp --depth=. -DMAPNIK_PLUGINDIR=\"$(shell mapnik-config --input-plugins)\" -Goutput_dir=. --generator-output=./build -f make
+	$(MAKE) -C build/ V=$(V)
 
-libvtile: build/Makefile Makefile
-	@$(MAKE) -C build/ BUILDTYPE=$(BUILDTYPE) V=$(V)
-
-test/geometry-test-data:
+test/geometry-test-data/README.md:
 	git submodule update --init
 
-test: libvtile test/geometry-test-data
-	DYLD_LIBRARY_PATH=$(MVT_LIBRARY_PATH) ./build/$(BUILDTYPE)/tests
+test: test/geometry-test-data/README.md
+	BUILDTYPE=Release ./test/run.sh
 
 testpack:
 	rm -f ./*tgz
@@ -38,12 +37,10 @@ install:
 	install -m 0755 -o root -g root build/Release/vtile-decode $(DESTDIR)/usr/bin
 	install -m 0755 -o root -g root build/Release/vtile-edit $(DESTDIR)/usr/bin
 	install -m 0755 -o root -g root build/Release/vtile-encode $(DESTDIR)/usr/bin
-	install -m 0755 -o root -g root build/Release/vtile-fuzz $(DESTDIR)/usr/bin
-	install -m 0755 -o root -g root build/Release/vtile-fuzz $(DESTDIR)/usr/bin
 
 clean:
 	rm -rf ./build
 
-.PHONY: test
+.PHONY: test build/Makefile
 
 

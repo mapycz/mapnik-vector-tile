@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.5.0
+
+- Added back ability to build against external mapnik (see docs for instructions)
+- Added support for variables @rafatower: https://github.com/mapbox/mapnik-vector-tile/pull/248
+
+## 1.4.0
+
+- Fixed a bug associated with image height and width when reading from an image resulting in a size of zero causing exceptions.
+- Updated to use mapnik 3.0.14, previous version of mapnik will not work properly with this newest version.
+- Corrected issues with resolution associated with mapnik queries that was allowing the buffer size of the vector tile to affect the resolution.
+- Removed some duplicate code
+- Removed fuzzer from library
+
 ## 1.3.0
 
 - Updated protozero to 1.5.1
