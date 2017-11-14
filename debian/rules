@@ -10,4 +10,4 @@ else
 endif
 
 %:
-	dh $@
+	dh $@ --parallel
