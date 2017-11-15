@@ -1,3 +1,12 @@
+szn-mapnik-vector-tile (1.4.0) Seznam; urgency=medium
+
+  * Merged with upstream/v3.0.x
+     * Removed fuzzer
+     * Fixed raster requests for zero size bitmaps
+     * Added support for render-time variables
+
+ -- Jiri Drbalek <jiri.drbalek@firma.seznam.cz>  Wed, 15 Nov 2017 09:57:00 +0100
+
 szn-mapnik-vector-tile (1.3.3) Seznam; urgency=medium
 
   * tile buffer size from the style
