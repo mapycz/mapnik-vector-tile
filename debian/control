@@ -5,7 +5,7 @@ Priority: optional
 Standards-Version: 3.9.2
 Build-Depends:
     debhelper (>= 9),
-    szn-libmapnik-dev,
+    szn-libmapnik-dev (>= 3:3.9.0),
     szn-libmapbox-variant-dev,
     szn-libmapbox-geometry-dev,
     szn-libwagyu-dev,
