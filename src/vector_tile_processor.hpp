@@ -59,6 +59,15 @@ private:
         return static_cast<std::int64_t>(tile_size) * m_.buffer_size() / VT_LEGACY_IMAGE_SIZE;
     }
 
+    template <typename Parent>
+    void append_sublayers(Parent const& lay,
+                          std::vector<tile_layer> & tile_layers,
+                          tile & t,
+                          double scale_denom,
+                          int offset_x,
+                          int offset_y,
+                          bool style_level_filter) const;
+
 public:
     processor(mapnik::Map const& map, mapnik::attributes const& vars = mapnik::attributes())
         : m_(map),

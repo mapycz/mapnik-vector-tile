@@ -247,16 +247,16 @@ inline void create_raster_layer(tile_layer & layer,
 
 } // end ns detail
 
-MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
-                                                 double scale_denom,
-                                                 int offset_x,
-                                                 int offset_y,
-                                                 bool style_level_filter)
+template <typename Parent>
+void processor::append_sublayers(Parent const& parent,
+                                 std::vector<tile_layer> & tile_layers,
+                                 tile & t,
+                                 double scale_denom,
+                                 int offset_x,
+                                 int offset_y,
+                                 bool style_level_filter) const
 {
-    // Futures
-    std::vector<tile_layer> tile_layers;
-    
-    for (mapnik::layer const& lay : m_.layers())
+    for (mapnik::layer const& lay : parent.layers())
     {
         if (t.has_layer(lay.name()))
         {
@@ -279,7 +279,23 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
             tile_layers.pop_back();
             continue;
         }
+
+        append_sublayers(lay, tile_layers, t, scale_denom, offset_x, offset_y,
+                         style_level_filter);
     }
+}
+
+MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
+                                                 double scale_denom,
+                                                 int offset_x,
+                                                 int offset_y,
+                                                 bool style_level_filter)
+{
+    // Futures
+    std::vector<tile_layer> tile_layers;
+
+    append_sublayers(m_, tile_layers, t, scale_denom, offset_x, offset_y,
+                     style_level_filter);
  
     if (threading_mode_ == std::launch::deferred)
     {
