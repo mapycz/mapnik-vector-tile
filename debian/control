@@ -15,7 +15,7 @@ Build-Depends:
 Package: szn-mapnik-vector-tile-dev
 Section: libdevel
 Architecture: amd64
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, szn-libmapnik-dev (>= 3:3.9.0)
 Description: Mapnik implemention of Mapbox Vector Tile specification 
 
 Package: szn-mapnik-vector-tile-utils
