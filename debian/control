@@ -9,6 +9,7 @@ Build-Depends:
     szn-libmapbox-variant-dev,
     szn-libmapbox-geometry-dev,
     szn-libwagyu-dev,
+    szn-libprotozero-dev,
     libprotobuf-dev,
     protobuf-compiler
 
