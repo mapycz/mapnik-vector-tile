@@ -17,7 +17,7 @@ namespace vector_tile_impl
 template <typename NextProcessor>
 struct geometry_simplifier 
 {
-    geometry_simplifier(unsigned simplify_distance,
+    geometry_simplifier(double simplify_distance,
                         NextProcessor & next)
         : next_(next),
           simplify_distance_(simplify_distance) {}
