@@ -14,6 +14,7 @@
 #include "vector_tile_config.hpp"
 #include "vector_tile_tile.hpp"
 #include "vector_tile_merc_tile.hpp"
+#include "vector_tile_wafer.hpp"
 
 // std
 #include <future>
@@ -59,10 +60,10 @@ private:
         return static_cast<std::int64_t>(tile_size) * m_.buffer_size() / VT_LEGACY_IMAGE_SIZE;
     }
 
-    template <typename Parent>
+    template <typename Parent, typename Tile, typename Layer>
     void append_sublayers(Parent const& lay,
-                          std::vector<tile_layer> & tile_layers,
-                          tile & t,
+                          std::vector<Layer> & tile_layers,
+                          Tile & t,
                           double scale_denom,
                           int offset_x,
                           int offset_y,
@@ -83,7 +84,8 @@ public:
           threading_mode_(std::launch::deferred),
           vars_(vars) {}
 
-    MAPNIK_VECTOR_INLINE void update_tile(tile & t,
+    template <typename Tile>
+    MAPNIK_VECTOR_INLINE void update_tile(Tile & t,
                                           double scale_denom = 0.0,
                                           int offset_x = 0,
                                           int offset_y = 0,
@@ -102,6 +104,22 @@ public:
         merc_tile t(x, y, z, tile_size, get_buffer_size(tile_size, buffer_size));
         update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
+    }
+
+    merc_wafer create_wafer(std::uint64_t x,
+                            std::uint64_t y,
+                            std::uint64_t z,
+                            unsigned span,
+                            std::uint32_t tile_size = 4096,
+                            boost::optional<std::int32_t> buffer_size = boost::none,
+                            double scale_denom = 0.0,
+                            int offset_x = 0,
+                            int offset_y = 0,
+                            bool style_level_filter = false)
+    {
+        merc_wafer wafer(x, y, z, span, tile_size, get_buffer_size(tile_size, buffer_size));
+        update_tile(wafer, scale_denom, offset_x, offset_y, style_level_filter);
+        return wafer;
     }
     
     tile create_tile(mapnik::box2d<double> const & extent,

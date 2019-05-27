@@ -42,39 +42,40 @@ struct layer_builder_pbf
     keys_container keys;
     values_container values;
     std::string & layer_buffer;
-    bool empty;
-    bool painted;
+    std::size_t initial_size;
 
     layer_builder_pbf(std::string const & name, std::uint32_t extent, std::string & _layer_buffer)
         : keys(),
           values(),
-          layer_buffer(_layer_buffer),
-          empty(true),
-          painted(false)
+          layer_buffer(_layer_buffer)
     {
         protozero::pbf_writer layer_writer(layer_buffer);
         layer_writer.add_uint32(Layer_Encoding::VERSION, 2);
         layer_writer.add_string(Layer_Encoding::NAME, name);
         layer_writer.add_uint32(Layer_Encoding::EXTENT, extent);
+        initial_size = layer_buffer.size();
     }
 
-    void make_painted()
+    bool empty() const
     {
-        painted = true;
+        return layer_buffer.size() <= initial_size;
     }
 
-    void make_not_empty()
+    void finalize()
     {
-        empty = false;
+        if (empty())
+        {
+            layer_buffer.clear();
+        }
     }
 
     MAPNIK_VECTOR_INLINE protozero::pbf_writer add_feature(mapnik::feature_impl const& mapnik_feature,
                                                            std::vector<std::uint32_t> & feature_tags);
 };
 
-class tile_layer
+class vector_layer
 {
-private:
+protected:
     bool valid_;
     mapnik::Map const& map_;
     mapnik::layer const& layer_;
@@ -83,18 +84,15 @@ private:
     mapnik::projection target_proj_;
     mapnik::projection source_proj_;
     mapnik::proj_transform prj_trans_;
-    std::string buffer_;
     std::string name_;
     std::uint32_t layer_extent_;
     mapnik::box2d<double> target_buffered_extent_;
     mapnik::box2d<double> source_buffered_extent_;
     mapnik::query query_;
     mapnik::view_transform view_trans_;
-    bool empty_;
-    bool painted_;
 
 public:
-    tile_layer(mapnik::Map const& map,
+    vector_layer(mapnik::Map const& map,
                mapnik::layer const& lay,
                mapnik::box2d<double> const& tile_extent_bbox,
                std::uint32_t tile_size,
@@ -113,20 +111,17 @@ public:
           target_proj_(map.srs(), true),
           source_proj_(lay.srs(), true),
           prj_trans_(target_proj_, source_proj_),
-          buffer_(),
           name_(lay.name()),
           layer_extent_(calc_extent(tile_size)),
           target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, buffer_size, lay, map)),
           source_buffered_extent_(calc_source_buffered_extent()),
           query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter, vars)),
-          view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y),
-          empty_(true),
-          painted_(false)
+          view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y)
     {
     }
 
 
-    tile_layer(tile_layer && rhs)
+    vector_layer(vector_layer && rhs)
         : valid_(std::move(rhs.valid_)),
           map_(std::move(rhs.map_)),
           layer_(std::move(rhs.layer_)),
@@ -135,20 +130,19 @@ public:
           target_proj_(std::move(rhs.target_proj_)),
           source_proj_(std::move(rhs.source_proj_)),
           prj_trans_(target_proj_, source_proj_),
-          buffer_(std::move(rhs.buffer_)),
           name_(std::move(rhs.name_)),
           layer_extent_(std::move(rhs.layer_extent_)),
           target_buffered_extent_(std::move(rhs.target_buffered_extent_)),
           source_buffered_extent_(std::move(rhs.source_buffered_extent_)),
           query_(std::move(rhs.query_)),
-          view_trans_(std::move(rhs.view_trans_)),
-          empty_(std::move(rhs.empty_)),
-          painted_(std::move(rhs.painted_)) {}
+          view_trans_(std::move(rhs.view_trans_))
+    {
+    }
 
-    tile_layer& operator=(tile_layer&&) = default;
+    vector_layer& operator=(vector_layer&&) = default;
 
-    tile_layer(tile_layer const& rhs) = delete;
-    tile_layer& operator=(const tile_layer&) = delete;
+    vector_layer(vector_layer const& rhs) = delete;
+    vector_layer& operator=(const vector_layer&) = delete;
 
     std::uint32_t calc_extent(std::uint32_t layer_extent)
     {
@@ -464,21 +458,37 @@ public:
     {
         name_ = val;
     }
+};
 
-    bool is_empty() const
+class tile_layer : public vector_layer
+{
+    std::string buffer_;
+
+public:
+    template <typename Tile>
+    tile_layer(mapnik::Map const& map,
+               mapnik::layer const& lay,
+               Tile & tile,
+               double scale_factor,
+               double scale_denom,
+               int offset_x,
+               int offset_y,
+               bool style_level_filter,
+               mapnik::attributes const& vars) :
+        vector_layer(map, lay, tile.extent(), tile.tile_size(),
+                     tile.buffer_size(), scale_factor, scale_denom,
+                     offset_x, offset_y, style_level_filter,
+                     vars)
     {
-        return empty_;
     }
-     
-    bool is_painted() const
+
+    tile_layer(tile_layer && rhs)
+        : vector_layer(std::move(rhs)),
+          buffer_(std::move(rhs.buffer_))
     {
-        return painted_;
     }
-    
-    void make_painted()
-    {
-        painted_ = true;
-    }
+
+    tile_layer& operator=(tile_layer &&) = default;
 
     std::string const& get_data() const
     {
@@ -490,10 +500,70 @@ public:
         return buffer_;
     }
 
-    void build(layer_builder_pbf const& builder)
+    bool is_empty() const
     {
-        empty_ = builder.empty;
-        painted_ = builder.painted;
+        return buffer_.empty();
+    }
+};
+
+class wafer_layer : public vector_layer
+{
+    std::deque<std::string> buffers_;
+
+public:
+    template <typename Wafer>
+    wafer_layer(mapnik::Map const& map,
+               mapnik::layer const& lay,
+               Wafer & wafer,
+               double scale_factor,
+               double scale_denom,
+               int offset_x,
+               int offset_y,
+               bool style_level_filter,
+               mapnik::attributes const& vars) :
+        vector_layer(map, lay, wafer.extent(), wafer.tile_size(),
+                     wafer.buffer_size(), scale_factor, scale_denom,
+                     offset_x, offset_y, style_level_filter,
+                     vars),
+        buffers_(wafer.tiles().size())
+    {
+    }
+
+    wafer_layer(wafer_layer && rhs)
+        : vector_layer(std::move(rhs)),
+          buffers_(std::move(rhs.buffers_))
+    {
+    }
+
+    wafer_layer& operator=(wafer_layer &&) = default;
+
+    std::deque<std::string> const& buffers() const
+    {
+        return buffers_;
+    }
+
+    std::deque<std::string> & buffers()
+    {
+        return buffers_;
+    }
+
+    bool is_empty() const
+    {
+        for (auto const & buffer : buffers_)
+        {
+            if (!buffer.empty())
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // TODO: Fake support for rasters
+    std::string raster_buffer_;
+    std::string & get_data()
+    {
+        return raster_buffer_;
     }
 };
 

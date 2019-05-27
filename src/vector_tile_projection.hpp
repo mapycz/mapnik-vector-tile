@@ -16,20 +16,16 @@ namespace vector_tile_impl
 class spherical_mercator
 {
 public:
-    spherical_mercator() = default;
-    spherical_mercator(unsigned tile_size) {}
-
-    MAPNIK_VECTOR_INLINE void xyz(std::uint64_t x,
-                                  std::uint64_t y,
-                                  std::uint64_t z,
-                                  double & minx,
-                                  double & miny,
-                                  double & maxx,
-                                  double & maxy);
+    static MAPNIK_VECTOR_INLINE void xyz(std::uint64_t x,
+                                         std::uint64_t y,
+                                         std::uint64_t z,
+                                         double & minx,
+                                         double & miny,
+                                         double & maxx,
+                                         double & maxy);
 };
 
-MAPNIK_VECTOR_INLINE mapnik::box2d<double> merc_extent(std::uint32_t tile_size, 
-                                                       std::uint64_t x, 
+MAPNIK_VECTOR_INLINE mapnik::box2d<double> merc_extent(std::uint64_t x, 
                                                        std::uint64_t y, 
                                                        std::uint64_t z);
 
