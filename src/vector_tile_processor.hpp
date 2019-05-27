@@ -14,6 +14,7 @@
 #include "vector_tile_config.hpp"
 #include "vector_tile_tile.hpp"
 #include "vector_tile_merc_tile.hpp"
+#include "vector_tile_wafer.hpp"
 
 // std
 #include <future>
@@ -115,9 +116,9 @@ public:
                            int offset_y = 0,
                            bool style_level_filter = false)
     {
-        merc_tile t(x, y, z, tile_size, get_buffer_size(tile_size, buffer_size));
-        update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
-        return t;
+        merc_wafer wafer(x, y, z, span, tile_size, get_buffer_size(tile_size, buffer_size));
+        update_tile(wafer, scale_denom, offset_x, offset_y, style_level_filter);
+        return wafer;
     }
     
     tile create_tile(mapnik::box2d<double> const & extent,
