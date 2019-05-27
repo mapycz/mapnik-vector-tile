@@ -103,6 +103,22 @@ public:
         update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
         return t;
     }
+
+    merc_tile create_wafer(std::uint64_t x,
+                           std::uint64_t y,
+                           std::uint64_t z,
+                           unsigned span,
+                           std::uint32_t tile_size = 4096,
+                           boost::optional<std::int32_t> buffer_size = boost::none,
+                           double scale_denom = 0.0,
+                           int offset_x = 0,
+                           int offset_y = 0,
+                           bool style_level_filter = false)
+    {
+        merc_tile t(x, y, z, tile_size, get_buffer_size(tile_size, buffer_size));
+        update_tile(t, scale_denom, offset_x, offset_y, style_level_filter);
+        return t;
+    }
     
     tile create_tile(mapnik::box2d<double> const & extent,
                      std::uint32_t tile_size = 4096,
