@@ -25,14 +25,58 @@
 // std
 #include <future>
 
-namespace mapnik 
+namespace mapnik
 {
 
-namespace vector_tile_impl 
+namespace vector_tile_impl
 {
 
 namespace detail
 {
+
+struct simple_tiler
+{
+    tile_layer & layer_;
+    layer_builder_pbf builder_;
+
+    simple_tiler(tile_layer & layer) :
+        layer_(layer),
+        builder_(layer.name(), layer.layer_extent(), layer.get_data())
+    {
+    }
+
+    struct visitor
+    {
+        visitor(visitor &&) = default;
+
+        using encoding_process = mapnik::vector_tile_impl::geometry_to_feature_pbf_visitor;
+
+        mapnik::feature_impl const& mapnik_feature_;
+        encoding_process encoder_;
+
+        visitor(mapnik::feature_impl const& mapnik_feature,
+                layer_builder_pbf & builder) :
+            mapnik_feature_(mapnik_feature),
+            encoder_(mapnik_feature, builder)
+        {}
+
+        template <typename T>
+        void operator() (T const& geom)
+        {
+            encoder_(geom);
+        }
+    };
+
+    visitor get_visitor(mapnik::feature_impl const& mapnik_feature_)
+    {
+        return visitor(mapnik_feature_, builder_);
+    }
+
+    void build()
+    {
+        layer_.build(builder_);
+    }
+};
 
 inline void create_geom_layer(tile_layer & layer,
                               double simplify_distance,
@@ -43,7 +87,7 @@ inline void create_geom_layer(tile_layer & layer,
                               bool process_all_rings,
                               bool style_level_filter)
 {
-    layer_builder_pbf builder(layer.name(), layer.layer_extent(), layer.get_data());
+    simple_tiler tiler(layer);
     std::vector<mapnik::rule_cache> active_rules(layer.get_active_rules());
 
     // query for the features
@@ -60,9 +104,8 @@ inline void create_geom_layer(tile_layer & layer,
     {
         return;
     }
-    
-    using encoding_process = mapnik::vector_tile_impl::geometry_to_feature_pbf_visitor;
-    using clipping_process = mapnik::vector_tile_impl::geometry_clipper<encoding_process>;
+
+    using clipping_process = mapnik::vector_tile_impl::geometry_clipper<simple_tiler::visitor>;
 
     mapnik::vector_tile_impl::vector_tile_strategy vs(layer.get_view_transform());
     mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
@@ -88,14 +131,14 @@ inline void create_geom_layer(tile_layer & layer,
                 if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                    encoding_process encoder(*feature, builder);
+                    simple_tiler::visitor tiler_visitor(tiler.get_visitor(*feature));
                     clipping_process clipper(tile_clipping_extent,
                                              area_threshold,
                                              strictly_simple,
                                              multi_polygon_union,
                                              fill_type,
                                              process_all_rings,
-                                             encoder);
+                                             tiler_visitor);
                     simplifier_process simplifier(simplify_distance, clipper);
                     transform_type transformer(vs, buffered_extent, simplifier);
                     mapnik::util::apply_visitor(transformer, geom);
@@ -114,14 +157,14 @@ inline void create_geom_layer(tile_layer & layer,
                 if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                    encoding_process encoder(*feature, builder);
+                    simple_tiler::visitor tiler_visitor(tiler.get_visitor(*feature));
                     clipping_process clipper(tile_clipping_extent,
                                              area_threshold,
                                              strictly_simple,
                                              multi_polygon_union,
                                              fill_type,
                                              process_all_rings,
-                                             encoder);
+                                             tiler_visitor);
                     simplifier_process simplifier(simplify_distance, clipper);
                     transform_type transformer(vs2, trans_buffered_extent, simplifier);
                     mapnik::util::apply_visitor(transformer, geom);
@@ -141,14 +184,14 @@ inline void create_geom_layer(tile_layer & layer,
                 if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                    encoding_process encoder(*feature, builder);
+                    simple_tiler::visitor tiler_visitor(tiler.get_visitor(*feature));
                     clipping_process clipper(tile_clipping_extent,
                                              area_threshold,
                                              strictly_simple,
                                              multi_polygon_union,
                                              fill_type,
                                              process_all_rings,
-                                             encoder);
+                                             tiler_visitor);
                     transform_type transformer(vs, buffered_extent, clipper);
                     mapnik::util::apply_visitor(transformer, geom);
                 }
@@ -166,14 +209,14 @@ inline void create_geom_layer(tile_layer & layer,
                 if (!style_level_filter || layer.evaluate_feature(*feature, active_rules))
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
-                    encoding_process encoder(*feature, builder);
+                    simple_tiler::visitor tiler_visitor(tiler.get_visitor(*feature));
                     clipping_process clipper(tile_clipping_extent,
                                              area_threshold,
                                              strictly_simple,
                                              multi_polygon_union,
                                              fill_type,
                                              process_all_rings,
-                                             encoder);
+                                             tiler_visitor);
                     transform_type transformer(vs2, trans_buffered_extent, clipper);
                     mapnik::util::apply_visitor(transformer, geom);
                 }
@@ -181,8 +224,7 @@ inline void create_geom_layer(tile_layer & layer,
             }
         }
     }
-    layer.build(builder);
-    return;
+    tiler.build();
 }
 
 inline void create_raster_layer(tile_layer & layer,
@@ -205,7 +247,7 @@ inline void create_raster_layer(tile_layer & layer,
     {
         return;
     }
-    
+
     mapnik::raster_ptr const& source = feature->get_raster();
     if (!source)
     {
@@ -213,7 +255,7 @@ inline void create_raster_layer(tile_layer & layer,
     }
 
     mapnik::box2d<double> target_ext = box2d<double>(source->ext_);
-    
+
     layer.get_proj_transform().backward(target_ext, PROJ_ENVELOPE_POINTS);
     mapnik::box2d<double> ext = layer.get_view_transform().forward(target_ext);
 
@@ -247,10 +289,10 @@ inline void create_raster_layer(tile_layer & layer,
 
 } // end ns detail
 
-template <typename Parent>
+template <typename Parent, typename Tile>
 void processor::append_sublayers(Parent const& parent,
                                  std::vector<tile_layer> & tile_layers,
-                                 tile & t,
+                                 Tile & t,
                                  double scale_denom,
                                  int offset_x,
                                  int offset_y,
@@ -285,7 +327,8 @@ void processor::append_sublayers(Parent const& parent,
     }
 }
 
-MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
+template <typename Tile>
+MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
                                                  double scale_denom,
                                                  int offset_x,
                                                  int offset_y,
@@ -296,7 +339,7 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
 
     append_sublayers(m_, tile_layers, t, scale_denom, offset_x, offset_y,
                      style_level_filter);
- 
+
     if (threading_mode_ == std::launch::deferred)
     {
         for (auto & layer_ref : tile_layers)
@@ -368,9 +411,23 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(tile & t,
 
     for (auto & layer_ref : tile_layers)
     {
-        t.add_layer(layer_ref); 
+        t.add_layer(layer_ref);
     }
 }
+
+template
+void processor::update_tile(tile & t,
+                            double scale_denom,
+                            int offset_x,
+                            int offset_y,
+                            bool style_level_filter);
+
+template
+void processor::update_tile(merc_tile & t,
+                            double scale_denom,
+                            int offset_x,
+                            int offset_y,
+                            bool style_level_filter);
 
 } // end ns vector_tile_impl
 

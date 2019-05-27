@@ -60,10 +60,10 @@ private:
         return static_cast<std::int64_t>(tile_size) * m_.buffer_size() / VT_LEGACY_IMAGE_SIZE;
     }
 
-    template <typename Parent>
+    template <typename Parent, typename Tile>
     void append_sublayers(Parent const& lay,
                           std::vector<tile_layer> & tile_layers,
-                          tile & t,
+                          Tile & t,
                           double scale_denom,
                           int offset_x,
                           int offset_y,
@@ -84,7 +84,8 @@ public:
           threading_mode_(std::launch::deferred),
           vars_(vars) {}
 
-    MAPNIK_VECTOR_INLINE void update_tile(tile & t,
+    template <typename Tile>
+    MAPNIK_VECTOR_INLINE void update_tile(Tile & t,
                                           double scale_denom = 0.0,
                                           int offset_x = 0,
                                           int offset_y = 0,
@@ -105,7 +106,7 @@ public:
         return t;
     }
 
-    merc_tile create_wafer(std::uint64_t x,
+    merc_wafer create_wafer(std::uint64_t x,
                            std::uint64_t y,
                            std::uint64_t z,
                            unsigned span,

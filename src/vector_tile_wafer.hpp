@@ -18,6 +18,7 @@ class merc_wafer
 protected:
     std::uint64_t x_, y_, z_;
     unsigned span_;
+    mapnik::box2d<double> extent_;
 
     std::vector<merc_tile> tiles_;
 
@@ -40,6 +41,9 @@ public:
                 tiles_.emplace_back(i, j, z, tile_size, buffer_size);
             }
         }
+
+        extent_ = merc_extent(x, y, z);
+        extent_.expand_to_include(merc_extent(x + span, y + span, z));
     }
 
     merc_wafer(merc_wafer const& rhs) = default;
@@ -61,6 +65,38 @@ public:
         return tiles_;
     }
 
+    box2d<double> const & extent() const
+    {
+        return extent_;
+    }
+
+    std::uint32_t tile_size() const
+    {
+        return tiles_.front().tile_size() * span_;
+    }
+
+    std::int32_t buffer_size() const
+    {
+        return tiles_.front().buffer_size();
+    }
+
+    bool has_layer(std::string const& name) const
+    {
+        return tiles_.front().has_layer(name);
+    }
+
+    void add_empty_layer(std::string const& name)
+    {
+        for (auto & tile : tiles_)
+        {
+            tile.add_empty_layer(name);
+        }
+    }
+
+    bool add_layer(tile_layer const& layer)
+    {
+        return false;
+    }
 };
 
 }

@@ -184,7 +184,7 @@ public:
         painted_layers_.clear();
     }
     
-    bool has_layer(std::string const& name)
+    bool has_layer(std::string const& name) const
     {
         auto itr = layers_set_.find(name);
         return itr != layers_set_.end();

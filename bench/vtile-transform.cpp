@@ -32,9 +32,8 @@ int main()
     mapnik::proj_transform prj_trans(merc,merc); // no-op
     mapnik::proj_transform prj_trans2(merc2,merc); // op
     unsigned tile_size = 256;
-    mapnik::vector_tile_impl::spherical_mercator merc_tiler(tile_size);
     double minx,miny,maxx,maxy;
-    merc_tiler.xyz(9664,20435,15,minx,miny,maxx,maxy);
+    mapnik::vector_tile_impl::spherical_mercator::xyz(9664,20435,15,minx,miny,maxx,maxy);
     mapnik::box2d<double> z15_extent(minx,miny,maxx,maxy);
     unsigned path_multiplier = 16;
     mapnik::view_transform tr(tile_size * path_multiplier,
