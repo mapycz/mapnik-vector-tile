@@ -80,7 +80,6 @@ struct clipper_params
 template <typename NextProcessor>
 class geometry_clipper 
 {
-private:
     NextProcessor & next_;
     mapnik::box2d<int> const& tile_clipping_extent_;
     double area_threshold_;

@@ -2,6 +2,7 @@
 #include "vector_tile_geometry_clipper.hpp"
 #include "vector_tile_geometry_feature.hpp"
 #include "vector_tile_geometry_simplifier.hpp"
+#include "vector_tile_geometry_translate.hpp"
 #include "vector_tile_raster_clipper.hpp"
 #include "vector_tile_strategy.hpp"
 #include "vector_tile_tile.hpp"
@@ -110,7 +111,8 @@ struct wafer_tiler
         visitor(visitor &&) = default;
 
         using Encoder = geometry_to_feature_pbf_visitor;
-        using Clipper = geometry_clipper<Encoder>;
+        using Translator = geometry_translate<Encoder>;
+        using Clipper = geometry_clipper<Translator>;
 
         wafer_tiler & tiler_;
         mapnik::feature_impl const& mapnik_feature_;
@@ -135,17 +137,18 @@ struct wafer_tiler
         void operator() (T const& geom)
         {
             auto encoder = encoders_.begin();
-            for (std::int32_t y = 0; y < tiler_.wafer_.tile_size(); y += tiler_.tile_size_)
+            std::int32_t wafer_size = tiler_.wafer_.tile_size();
+            for (std::int32_t y = 0; y < wafer_size; y += tiler_.tile_size_)
             {
-                for (std::int32_t x = 0; x < tiler_.wafer_.tile_size(); x += tiler_.tile_size_)
+                for (std::int32_t x = 0; x < wafer_size; x += tiler_.tile_size_)
                 {
+                    T geom_copy(geom);
                     mapnik::box2d<std::int32_t> tile_box(
                         x, y, x + tiler_.tile_size_, y + tiler_.tile_size_);
                     tile_box.pad(tiler_.buffer_size_);
-                    Clipper clipper(tile_box,
-                                    clipper_params_,
-                                    // TODO: translate and filter
-                                    *encoder);
+                    Translator translate(-x, -y, *encoder);
+                    Clipper clipper(tile_box, clipper_params_, translate);
+                    clipper(geom_copy);
                     ++encoder;
                 }
             }

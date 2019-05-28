@@ -1,6 +1,4 @@
-#ifndef __MAPNIK_VECTOR_TILE_MERC_WAFER_H__
-#define __MAPNIK_VECTOR_TILE_MERC_WAFER_H__
-
+#pragma once
 // mapnik-vector-tile
 #include "vector_tile_merc_tile.hpp"
 #include "vector_tile_layer.hpp"
@@ -104,9 +102,3 @@ public:
 }
 
 }
-
-#if !defined(MAPNIK_VECTOR_TILE_LIBRARY)
-//#include "vector_tile_tile.ipp"
-#endif
-
-#endif // __MAPNIK_VECTOR_TILE_MERC_WAFER_H__
