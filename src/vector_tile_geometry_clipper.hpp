@@ -68,6 +68,15 @@ inline mapbox::geometry::wagyu::fill_type get_wagyu_fill_type(polygon_fill_type 
 
 } // end ns detail
 
+struct clipper_params
+{
+    double area_threshold;
+    bool strictly_simple;
+    bool multi_polygon_union;
+    polygon_fill_type fill_type;
+    bool process_all_rings;
+};
+
 template <typename NextProcessor>
 class geometry_clipper 
 {
@@ -80,6 +89,19 @@ private:
     polygon_fill_type fill_type_;
     bool process_all_rings_;
 public:
+    geometry_clipper(mapnik::box2d<int> const& tile_clipping_extent,
+                     clipper_params const & params,
+                     NextProcessor & next) :
+              next_(next),
+              tile_clipping_extent_(tile_clipping_extent),
+              area_threshold_(params.area_threshold),
+              strictly_simple_(params.strictly_simple),
+              multi_polygon_union_(params.multi_polygon_union),
+              fill_type_(params.fill_type),
+              process_all_rings_(params.process_all_rings)
+    {
+    }
+
     geometry_clipper(mapnik::box2d<int> const& tile_clipping_extent,
                      double area_threshold,
                      bool strictly_simple,
