@@ -30,7 +30,7 @@ inline void raster_to_feature(std::string const& buffer,
     feature_writer.add_uint64(Feature_Encoding::ID, static_cast<std::uint64_t>(mapnik_feature.id()));
     feature_writer.add_string(Feature_Encoding::RASTER, buffer);
     feature_writer.add_packed_uint32(Feature_Encoding::TAGS, feature_tags.begin(), feature_tags.end());
-    builder.make_not_empty();
+    //builder.make_not_empty();
 }
 
 struct geometry_to_feature_pbf_visitor
@@ -58,7 +58,7 @@ struct geometry_to_feature_pbf_visitor
             {
                 feature_writer.add_uint64(Feature_Encoding::ID, static_cast<std::uint64_t>(mapnik_feature_.id()));
                 feature_writer.add_packed_uint32(Feature_Encoding::TAGS, feature_tags.begin(), feature_tags.end());
-                builder_.make_not_empty();
+                //builder_.make_not_empty();
             }
             else
             {

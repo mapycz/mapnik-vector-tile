@@ -22,7 +22,7 @@ MAPNIK_VECTOR_INLINE bool tile::add_layer(tile_layer const& layer)
     if (layer.is_empty())
     {
         empty_layers_.insert(new_name);
-        if (layer.is_painted())
+        if (!layer.is_empty())
         {
             painted_layers_.insert(new_name);
         }

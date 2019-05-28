@@ -60,9 +60,9 @@ private:
         return static_cast<std::int64_t>(tile_size) * m_.buffer_size() / VT_LEGACY_IMAGE_SIZE;
     }
 
-    template <typename Parent, typename Tile>
+    template <typename Parent, typename Tile, typename Layer>
     void append_sublayers(Parent const& lay,
-                          std::vector<tile_layer> & tile_layers,
+                          std::vector<Layer> & tile_layers,
                           Tile & t,
                           double scale_denom,
                           int offset_x,
