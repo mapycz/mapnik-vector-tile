@@ -3,6 +3,7 @@
 
 // mapnik-vector-tile
 #include "vector_tile_config.hpp"
+#include "vector_tile_layer.hpp"
 
 //protozero
 #include <protozero/pbf_reader.hpp>
@@ -20,9 +21,6 @@ namespace mapnik
 
 namespace vector_tile_impl
 {
-
-// fwd declare
-class tile_layer;
 
 class tile
 {
@@ -53,7 +51,12 @@ public:
 
     tile(tile && rhs) = default;
 
-    MAPNIK_VECTOR_INLINE bool add_layer(tile_layer const& layer);
+    MAPNIK_VECTOR_INLINE bool add_layer(std::string const& name, std::string const& data);
+
+    bool add_layer(tile_layer const& layer)
+    {
+        return add_layer(layer.name(), layer.get_data());
+    }
 
     void add_empty_layer(std::string const& name)
     {

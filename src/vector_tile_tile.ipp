@@ -1,6 +1,5 @@
 // mapnik-vector-tile
 #include "vector_tile_config.hpp"
-#include "vector_tile_layer.hpp"
 
 //protozero
 #include <protozero/pbf_reader.hpp>
@@ -16,30 +15,25 @@ namespace mapnik
 namespace vector_tile_impl
 {
 
-MAPNIK_VECTOR_INLINE bool tile::add_layer(tile_layer const& layer)
+MAPNIK_VECTOR_INLINE bool tile::add_layer(std::string const& name, std::string const& data)
 {
-    std::string const& new_name = layer.name();
-    if (layer.is_empty())
+    if (data.empty())
     {
-        empty_layers_.insert(new_name);
-        if (!layer.is_empty())
-        {
-            painted_layers_.insert(new_name);
-        }
+        empty_layers_.insert(name);
     }
     else
     {
-        painted_layers_.insert(new_name);
-        auto p = layers_set_.insert(new_name);
+        painted_layers_.insert(name);
+        auto p = layers_set_.insert(name);
         if (!p.second)
         {
             // Layer already in tile
             return false;
         }
-        layers_.push_back(new_name);
+        layers_.push_back(name);
         protozero::pbf_writer tile_writer(buffer_);
-        tile_writer.add_message(Tile_Encoding::LAYERS, layer.get_data());
-        auto itr = empty_layers_.find(new_name);
+        tile_writer.add_message(Tile_Encoding::LAYERS, data);
+        auto itr = empty_layers_.find(name);
         if (itr != empty_layers_.end())
         {
             empty_layers_.erase(itr);

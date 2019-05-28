@@ -94,8 +94,14 @@ public:
 
     bool add_layer(wafer_layer const& layer)
     {
-        throw std::runtime_error("not implemented");
-        return false;
+        bool added = false;
+        auto tile = tiles_.begin();
+        for (auto const & buffer : layer.buffers())
+        {
+            tile->add_layer(layer.name(), buffer);
+            ++tile;
+        }
+        return added;
     }
 };
 
