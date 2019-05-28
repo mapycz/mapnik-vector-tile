@@ -514,7 +514,8 @@ public:
         vector_layer(map, lay, wafer.extent(), wafer.tile_size(),
                      wafer.buffer_size(), scale_factor, scale_denom,
                      offset_x, offset_y, style_level_filter,
-                     vars)
+                     vars),
+        buffers_(wafer.tiles().size())
     {
     }
 

@@ -91,13 +91,12 @@ struct wafer_tiler
     wafer_tiler(merc_wafer & wafer, wafer_layer & layer) :
         wafer_(wafer),
         layer_(layer)
-        //builder_(layer.name(), layer.layer_extent(), layer.get_data())
     {
-        for (auto const & tile : wafer_.tiles())
+        std::uint32_t tile_size = wafer_.tiles().front().tile_size();
+        for (auto & buffer : layer_.buffers())
         {
-            //builders_.emplace_back(layer.name(), tile.tile_size(), 
+            builders_.emplace_back(layer.name(), tile_size, buffer);
         }
-
     }
 
     struct visitor
