@@ -54,6 +54,11 @@ struct layer_builder_pbf
         layer_writer.add_uint32(Layer_Encoding::EXTENT, extent);
     }
 
+    bool empty() const
+    {
+        return layer_buffer.empty();
+    }
+
     MAPNIK_VECTOR_INLINE protozero::pbf_writer add_feature(mapnik::feature_impl const& mapnik_feature,
                                                            std::vector<std::uint32_t> & feature_tags);
 };
@@ -541,6 +546,13 @@ public:
             }
         }
         return true;
+    }
+
+    // TODO: Fake support for rasters
+    std::string raster_buffer_;
+    std::string & get_data()
+    {
+        return raster_buffer_;
     }
 };
 

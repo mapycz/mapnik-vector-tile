@@ -7,6 +7,7 @@
 
 // mapnik vector tile layer class
 #include "vector_tile_layer.hpp"
+#include "vector_tile_tile.hpp"
 
 TEST_CASE("Vector tile layer class")
 {
@@ -22,13 +23,12 @@ TEST_CASE("Vector tile layer class")
         mapnik::layer layer("layer", "+init=epsg:3857");
         layer.set_datasource(ds);
         mapnik::box2d<double> extent(-20037508.342789,-20037508.342789,20037508.342789,20037508.342789);
+        mapnik::vector_tile_impl::tile tile(extent, 256, 10);
         const mapnik::attributes empty_vars;
 
         mapnik::vector_tile_impl::tile_layer some_layer(map,
                                                         layer,
-                                                        extent,
-                                                        256, // tile_size
-                                                        10, // buffer_size
+                                                        tile,
                                                         1.0, // scale_factor
                                                         0, // scale_denom
                                                         0, // offset_x
@@ -50,13 +50,12 @@ TEST_CASE("Vector tile layer class")
         mapnik::layer layer("layer", "+init=epsg:3857");
         layer.set_datasource(ds);
         mapnik::box2d<double> extent(-20037508.342789,-20037508.342789,20037508.342789,20037508.342789);
+        mapnik::vector_tile_impl::tile tile(extent, 256, 10);
         const mapnik::attributes vars { {"zoom_level", 20} };
 
         mapnik::vector_tile_impl::tile_layer some_layer(map,
                                                         layer,
-                                                        extent,
-                                                        256, // tile_size
-                                                        10, // buffer_size
+                                                        tile,
                                                         1.0, // scale_factor
                                                         0, // scale_denom
                                                         0, // offset_x

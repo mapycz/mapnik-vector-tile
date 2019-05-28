@@ -37,5 +37,5 @@ TEST_CASE("encode feature pbf of degenerate linestring")
     mapnik::vector_tile_impl::geometry_to_feature_pbf_visitor visitor(*f, layer);
     visitor(line);
 
-    REQUIRE(layer.empty == true);
+    REQUIRE(layer.empty() == true);
 }

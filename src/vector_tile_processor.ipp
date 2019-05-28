@@ -85,10 +85,10 @@ struct simple_tiler
 struct wafer_tiler
 {
     merc_wafer & wafer_;
-    tile_layer & layer_;
+    wafer_layer & layer_;
     std::deque<layer_builder_pbf> builders_;
 
-    wafer_tiler(merc_wafer & wafer, tile_layer & layer) :
+    wafer_tiler(merc_wafer & wafer, wafer_layer & layer) :
         wafer_(wafer),
         layer_(layer)
         //builder_(layer.name(), layer.layer_extent(), layer.get_data())
@@ -122,7 +122,7 @@ struct wafer_tiler
         template <typename T>
         void operator() (T const& geom)
         {
-            encoder_(geom);
+            //encoder_(geom);
         }
     };
 
@@ -132,9 +132,35 @@ struct wafer_tiler
     }
 };
 
-template <typename Tile, typename Layer>
+template <typename Tile>
+struct tile_traits
+{
+};
+
+template <>
+struct tile_traits<tile>
+{
+    using Layer = tile_layer;
+    using Tiler = simple_tiler<tile>;
+};
+
+template <>
+struct tile_traits<merc_tile>
+{
+    using Layer = tile_layer;
+    using Tiler = simple_tiler<merc_tile>;
+};
+
+template <>
+struct tile_traits<merc_wafer>
+{
+    using Layer = wafer_layer;
+    using Tiler = wafer_tiler;
+};
+
+template <typename Tile>
 inline void create_geom_layer(Tile & tile,
-                              tile_layer & layer,
+                              typename tile_traits<Tile>::Layer & layer,
                               double simplify_distance,
                               double area_threshold,
                               polygon_fill_type fill_type,
@@ -143,7 +169,7 @@ inline void create_geom_layer(Tile & tile,
                               bool process_all_rings,
                               bool style_level_filter)
 {
-    using Tiler = simple_tiler<Tile>;
+    using Tiler = typename tile_traits<Tile>::Tiler;
     Tiler tiler(tile, layer);
     std::vector<mapnik::rule_cache> active_rules(layer.get_active_rules());
 
@@ -283,7 +309,8 @@ inline void create_geom_layer(Tile & tile,
     }
 }
 
-inline void create_raster_layer(tile_layer & layer,
+template <typename Layer>
+inline void create_raster_layer(Layer & layer,
                                 std::string const& image_format,
                                 scaling_method_e scaling_method)
 {
@@ -377,7 +404,7 @@ void processor::append_sublayers(Parent const& parent,
     }
 }
 
-template <typename Tile, typename Layer>
+template <typename Tile>
 MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
                                                  double scale_denom,
                                                  int offset_x,
@@ -385,6 +412,7 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
                                                  bool style_level_filter)
 {
     // Futures
+    using Layer = typename detail::tile_traits<Tile>::Layer;
     std::vector<Layer> tile_layers;
 
     append_sublayers(m_, tile_layers, t, scale_denom, offset_x, offset_y,
@@ -396,7 +424,7 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
         {
             if (layer.get_ds()->type() == datasource::Vector)
             {
-                detail::create_geom_layer(tiler,
+                detail::create_geom_layer(t, layer,
                                           simplify_distance_,
                                           area_threshold_,
                                           fill_type_,
@@ -426,7 +454,8 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
             {
                 future_layers.push_back(std::async(
                                         threading_mode_,
-                                        detail::create_geom_layer,
+                                        detail::create_geom_layer<Tile>,
+                                        std::ref(t),
                                         std::ref(layer_ref),
                                         simplify_distance_,
                                         area_threshold_,
@@ -441,7 +470,7 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
             {
                 future_layers.push_back(std::async(
                                         threading_mode_,
-                                        detail::create_raster_layer,
+                                        detail::create_raster_layer<Layer>,
                                         std::ref(layer_ref),
                                         image_format_,
                                         scaling_method_

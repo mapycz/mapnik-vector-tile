@@ -3,6 +3,7 @@
 
 // mapnik-vector-tile
 #include "vector_tile_merc_tile.hpp"
+#include "vector_tile_layer.hpp"
 
 // std
 #include <vector>
@@ -93,8 +94,9 @@ public:
         }
     }
 
-    bool add_layer(tile_layer const& layer)
+    bool add_layer(wafer_layer const& layer)
     {
+        throw std::runtime_error("not implemented");
         return false;
     }
 };
