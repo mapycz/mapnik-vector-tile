@@ -1,3 +1,9 @@
+szn-mapnik-vector-tile (1.5.0) Seznam; urgency=medium
+
+  * New create_wafer()
+
+ -- Jiri Drbalek <jiri.drbalek@firma.seznam.cz>  Wed, 29 May 2019 17:18:15 +0200
+
 szn-mapnik-vector-tile (1.4.2) Seznam; urgency=medium
 
   * Fixed deps
