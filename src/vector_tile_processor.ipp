@@ -50,6 +50,11 @@ struct simple_tiler
     {
     }
 
+    ~simple_tiler()
+    {
+        builder_.finalize();
+    }
+
     tile_layer & layer()
     {
         return layer_;
@@ -82,11 +87,6 @@ struct simple_tiler
     {
         return visitor(mapnik_feature_, builder_);
     }
-
-    void finalize()
-    {
-        builder_.finalize();
-    }
 };
 
 struct wafer_tiler
@@ -108,6 +108,14 @@ struct wafer_tiler
         for (auto & buffer : layer_.buffers())
         {
             builders_.emplace_back(layer.name(), tile_size_, buffer);
+        }
+    }
+
+    ~wafer_tiler()
+    {
+        for (auto & builder : builders_)
+        {
+            builder.finalize();
         }
     }
 
@@ -164,14 +172,6 @@ struct wafer_tiler
                         clipper_params const & clip_params)
     {
         return visitor(*this, mapnik_feature_, builders_, clip_params);
-    }
-
-    void finalize()
-    {
-        for (auto & builder : builders_)
-        {
-            builder.finalize();
-        }
     }
 };
 
@@ -329,7 +329,6 @@ inline void create_geom_layer(Tile & tile,
             }
         }
     }
-    tiler.finalize();
 }
 
 template <typename Layer>
