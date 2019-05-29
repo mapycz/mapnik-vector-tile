@@ -517,6 +517,13 @@ void processor::update_tile(merc_tile & t,
                             int offset_y,
                             bool style_level_filter);
 
+template
+void processor::update_tile(merc_wafer & t,
+                            double scale_denom,
+                            int offset_x,
+                            int offset_y,
+                            bool style_level_filter);
+
 } // end ns vector_tile_impl
 
 } // end ns mapnik
