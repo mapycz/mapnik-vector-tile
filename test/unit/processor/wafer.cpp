@@ -1,15 +1,10 @@
 #include "catch.hpp"
 
 // mapnik-vector-tile
-#include "vector_tile_datasource_pbf.hpp"
 #include "vector_tile_processor.hpp"
 
 // mapnik
-#include <mapnik/agg_renderer.hpp>
-#include <mapnik/feature_factory.hpp>
 #include <mapnik/load_map.hpp>
-#include <mapnik/image_util.hpp>
-#include <mapnik/util/fs.hpp>
 
 // test utils
 #include "decoding_util.hpp"
@@ -22,12 +17,8 @@
 #include "vector_tile.pb.h"
 #pragma GCC diagnostic pop
 
-// boost
-#include <boost/optional/optional_io.hpp>
-
 // std
 #include <set>
-#include <fstream>
 
 TEST_CASE("vector wafer output")
 {
@@ -138,6 +129,50 @@ TEST_CASE("vector wafer output")
 
                     CHECK(exterior[4].x == Approx(910.0));
                     CHECK(exterior[4].y == Approx(3181.0));
+                    break;
+                }
+                case 4 * 8 + 3:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    auto const & exterior = g.exterior_ring;
+                    REQUIRE(exterior.size() == 5);
+
+                    CHECK(exterior[0].x == Approx(4160.0));
+                    CHECK(exterior[0].y == Approx(-64.0));
+
+                    CHECK(exterior[1].x == Approx(4160.0));
+                    CHECK(exterior[1].y == Approx(915.0));
+
+                    CHECK(exterior[2].x == Approx(3186.0));
+                    CHECK(exterior[2].y == Approx(915.0));
+
+                    CHECK(exterior[3].x == Approx(3186.0));
+                    CHECK(exterior[3].y == Approx(-64.0));
+
+                    CHECK(exterior[4].x == Approx(4160.0));
+                    CHECK(exterior[4].y == Approx(-64.0));
+                    break;
+                }
+                case 4 * 8 + 4:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    auto const & exterior = g.exterior_ring;
+                    REQUIRE(exterior.size() == 5);
+
+                    CHECK(exterior[0].x == Approx(910.0));
+                    CHECK(exterior[0].y == Approx(-64.0));
+
+                    CHECK(exterior[1].x == Approx(910.0));
+                    CHECK(exterior[1].y == Approx(915.0));
+
+                    CHECK(exterior[2].x == Approx(-64.0));
+                    CHECK(exterior[2].y == Approx(915.0));
+
+                    CHECK(exterior[3].x == Approx(-64.0));
+                    CHECK(exterior[3].y == Approx(-64.0));
+
+                    CHECK(exterior[4].x == Approx(910.0));
+                    CHECK(exterior[4].y == Approx(-64.0));
                     break;
                 }
             }
