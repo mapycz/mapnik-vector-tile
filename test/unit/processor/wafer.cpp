@@ -26,6 +26,7 @@
 
 // std
 #include <set>
+#include <fstream>
 
 TEST_CASE("vector wafer output")
 {
@@ -52,10 +53,58 @@ TEST_CASE("vector wafer output")
     
     mapnik::vector_tile_impl::processor ren(map);
     
-    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(0, 0, 3, 8);
+    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(0, 0, 3, 8, 4096, 64);
     CHECK(wafer.span() == 8);
-    CHECK(wafer.tiles().size() == 64);
+    REQUIRE(wafer.tiles().size() == 64);
 
+    const mapnik::box2d<double> expected_extent(
+        -20037508.3427892439, -20037508.3427892439,
+         20037508.3427892439,  20037508.3427892439);
+    CHECK(wafer.extent().minx() == Approx(expected_extent.minx()));
+    CHECK(wafer.extent().miny() == Approx(expected_extent.miny()));
+    CHECK(wafer.extent().maxx() == Approx(expected_extent.maxx()));
+    CHECK(wafer.extent().maxy() == Approx(expected_extent.maxy()));
+
+    CHECK(wafer.tile_size() == 4096 * 8);
+    CHECK(wafer.buffer_size() == 64);
+    CHECK(wafer.has_layer("polygon") == true);
+
+    const std::set<std::size_t> non_empty_tile_indices {
+        3 * 8 + 3, 3 * 8 + 4,
+        4 * 8 + 3, 4 * 8 + 4 };
+    std::size_t index = 0;
+
+    for (auto const & tile : wafer.tiles())
+    {
+        if (non_empty_tile_indices.count(index))
+        {
+            CHECK(tile.has_layer("polygon") == true);
+            vector_tile::Tile mvt;
+            mvt.ParseFromString(tile.get_buffer());
+            REQUIRE(1 == mvt.layers_size());
+            vector_tile::Tile_Layer const& layer = mvt.layers(0);
+            CHECK(std::string("polygon") == layer.name());
+            REQUIRE(1 == layer.features_size());
+        }
+        else
+        {
+            //CHECK(tile.has_layer("polygon") == false);
+        }
+        ++index;
+    }
+
+    mapnik::vector_tile_impl::merc_tile const & wafer_tile = wafer.tile(3, 3);
+    std::ofstream of("/tmp/test.mvt", std::ios::binary);
+    of << wafer_tile.get_buffer();
+    vector_tile::Tile tile;
+    tile.ParseFromString(wafer_tile.get_buffer());
+    REQUIRE(1 == tile.layers_size());
+    vector_tile::Tile_Layer const& layer = tile.layers(0);
+    CHECK(std::string("polygon") == layer.name());
+    REQUIRE(1 == layer.features_size());
+    vector_tile::Tile_Feature const& f = layer.features(0);
+    CHECK(static_cast<mapnik::value_integer>(1) == static_cast<mapnik::value_integer>(f.id()));
+    //REQUIRE(3 == f.geometry_size());
 
     /*
     // Now check that the tile is correct.

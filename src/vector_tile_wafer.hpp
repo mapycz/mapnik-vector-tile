@@ -31,7 +31,8 @@ public:
         : x_(x),
           y_(y),
           z_(z),
-          span_(span)
+          span_(span),
+          extent_(merc_extent(x, y, z))
     {
         for (std::uint64_t j = y; j < y + span; ++j)
         {
@@ -41,8 +42,7 @@ public:
             }
         }
 
-        extent_ = merc_extent(x, y, z);
-        extent_.expand_to_include(merc_extent(x + span, y + span, z));
+        extent_.expand_to_include(merc_extent(x + span - 1, y + span - 1, z));
     }
 
     merc_wafer(merc_wafer const& rhs) = default;
@@ -64,6 +64,11 @@ public:
         return tiles_;
     }
 
+    merc_tile const & tile(std::size_t x, std::size_t y) const
+    {
+        return tiles_[y * span_ + x];
+    }
+
     box2d<double> const & extent() const
     {
         return extent_;
@@ -81,7 +86,14 @@ public:
 
     bool has_layer(std::string const& name) const
     {
-        return tiles_.front().has_layer(name);
+        for (auto const & tile : tiles_)
+        {
+            if (tiles_.front().has_layer(name))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void add_empty_layer(std::string const& name)
