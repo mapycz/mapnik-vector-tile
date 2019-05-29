@@ -91,7 +91,56 @@ TEST_CASE("vector wafer output")
             mapnik::vector_tile_impl::GeometryPBF geoms = feature_to_pbf_geometry(feature_string);
             auto geom = mapnik::vector_tile_impl::decode_geometry<double>(
                 geoms, feature.type(), 2, 0.0, 0.0, 1.0, 1.0);
-            CHECK(geom.is<mapnik::geometry::polygon<double>>());
+            using Geom = mapnik::geometry::polygon<double>;
+            CHECK(geom.is<Geom>());
+
+            switch (index)
+            {
+                case 3 * 8 + 3:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    auto const & exterior = g.exterior_ring;
+                    REQUIRE(exterior.size() == 5);
+
+                    CHECK(exterior[0].x == Approx(4160.0));
+                    CHECK(exterior[0].y == Approx(3181.0));
+
+                    CHECK(exterior[1].x == Approx(4160.0));
+                    CHECK(exterior[1].y == Approx(4160.0));
+
+                    CHECK(exterior[2].x == Approx(3186.0));
+                    CHECK(exterior[2].y == Approx(4160.0));
+
+                    CHECK(exterior[3].x == Approx(3186.0));
+                    CHECK(exterior[3].y == Approx(3181.0));
+
+                    CHECK(exterior[4].x == Approx(4160.0));
+                    CHECK(exterior[4].y == Approx(3181.0));
+                    break;
+                }
+                case 3 * 8 + 4:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    auto const & exterior = g.exterior_ring;
+                    REQUIRE(exterior.size() == 5);
+
+                    CHECK(exterior[0].x == Approx(910.0));
+                    CHECK(exterior[0].y == Approx(3181.0));
+
+                    CHECK(exterior[1].x == Approx(910.0));
+                    CHECK(exterior[1].y == Approx(4160.0));
+
+                    CHECK(exterior[2].x == Approx(-64.0));
+                    CHECK(exterior[2].y == Approx(4160.0));
+
+                    CHECK(exterior[3].x == Approx(-64.0));
+                    CHECK(exterior[3].y == Approx(3181.0));
+
+                    CHECK(exterior[4].x == Approx(910.0));
+                    CHECK(exterior[4].y == Approx(3181.0));
+                    break;
+                }
+            }
         }
         else
         {
@@ -99,39 +148,6 @@ TEST_CASE("vector wafer output")
         }
         ++index;
     }
-
-    mapnik::vector_tile_impl::merc_tile const & wafer_tile = wafer.tile(3, 3);
-    std::ofstream of("/tmp/test.mvt", std::ios::binary);
-    of << wafer_tile.get_buffer();
-    vector_tile::Tile tile;
-    tile.ParseFromString(wafer_tile.get_buffer());
-    REQUIRE(1 == tile.layers_size());
-    vector_tile::Tile_Layer const& layer = tile.layers(0);
-    CHECK(std::string("polygon") == layer.name());
-    REQUIRE(1 == layer.features_size());
-    vector_tile::Tile_Feature const& f = layer.features(0);
-    CHECK(static_cast<mapnik::value_integer>(1) == static_cast<mapnik::value_integer>(f.id()));
-    //REQUIRE(3 == f.geometry_size());
-
-    /*
-    // Now check that the tile is correct.
-    vector_tile::Tile tile;
-    tile.ParseFromString(out_tile.get_buffer());
-    REQUIRE(1 == tile.layers_size());
-    vector_tile::Tile_Layer const& layer = tile.layers(0);
-    CHECK(std::string("layer") == layer.name());
-    REQUIRE(2 == layer.features_size());
-    vector_tile::Tile_Feature const& f = layer.features(0);
-    CHECK(static_cast<mapnik::value_integer>(1) == static_cast<mapnik::value_integer>(f.id()));
-    REQUIRE(3 == f.geometry_size());
-    CHECK(9 == f.geometry(0));
-    CHECK(4096 == f.geometry(1));
-    CHECK(4096 == f.geometry(2));
-    CHECK(190 == tile.ByteSize());
-    std::string buffer;
-    CHECK(tile.SerializeToString(&buffer));
-    CHECK(190 == buffer.size());
-    */
 }
 
 
