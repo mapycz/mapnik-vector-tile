@@ -14,11 +14,9 @@ namespace vector_tile_impl
 
 class merc_wafer
 {
-protected:
     std::uint64_t x_, y_, z_;
     unsigned span_;
     mapnik::box2d<double> extent_;
-
     std::vector<merc_tile> tiles_;
 
 public:
@@ -88,7 +86,7 @@ public:
     {
         for (auto const & tile : tiles_)
         {
-            if (tiles_.front().has_layer(name))
+            if (tile.has_layer(name))
             {
                 return true;
             }

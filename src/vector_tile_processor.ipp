@@ -82,6 +82,11 @@ struct simple_tiler
     {
         return visitor(mapnik_feature_, builder_);
     }
+
+    void finalize()
+    {
+        builder_.finalize();
+    }
 };
 
 struct wafer_tiler
@@ -159,6 +164,14 @@ struct wafer_tiler
                         clipper_params const & clip_params)
     {
         return visitor(*this, mapnik_feature_, builders_, clip_params);
+    }
+
+    void finalize()
+    {
+        for (auto & builder : builders_)
+        {
+            builder.finalize();
+        }
     }
 };
 
@@ -316,6 +329,7 @@ inline void create_geom_layer(Tile & tile,
             }
         }
     }
+    tiler.finalize();
 }
 
 template <typename Layer>

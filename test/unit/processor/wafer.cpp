@@ -88,7 +88,7 @@ TEST_CASE("vector wafer output")
         }
         else
         {
-            //CHECK(tile.has_layer("polygon") == false);
+            CHECK(tile.has_layer("polygon") == false);
         }
         ++index;
     }

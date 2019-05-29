@@ -42,6 +42,7 @@ struct layer_builder_pbf
     keys_container keys;
     values_container values;
     std::string & layer_buffer;
+    std::size_t initial_size;
 
     layer_builder_pbf(std::string const & name, std::uint32_t extent, std::string & _layer_buffer)
         : keys(),
@@ -52,11 +53,20 @@ struct layer_builder_pbf
         layer_writer.add_uint32(Layer_Encoding::VERSION, 2);
         layer_writer.add_string(Layer_Encoding::NAME, name);
         layer_writer.add_uint32(Layer_Encoding::EXTENT, extent);
+        initial_size = layer_buffer.size();
     }
 
     bool empty() const
     {
-        return layer_buffer.empty();
+        return layer_buffer.size() <= initial_size;
+    }
+
+    void finalize()
+    {
+        if (empty())
+        {
+            layer_buffer.clear();
+        }
     }
 
     MAPNIK_VECTOR_INLINE protozero::pbf_writer add_feature(mapnik::feature_impl const& mapnik_feature,
