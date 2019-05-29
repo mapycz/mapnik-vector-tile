@@ -12,6 +12,7 @@
 #include <mapnik/util/fs.hpp>
 
 // test utils
+#include "decoding_util.hpp"
 #include "test_utils.hpp"
 
 // libprotobuf
@@ -85,6 +86,12 @@ TEST_CASE("vector wafer output")
             vector_tile::Tile_Layer const& layer = mvt.layers(0);
             CHECK(std::string("polygon") == layer.name());
             REQUIRE(1 == layer.features_size());
+            vector_tile::Tile_Feature const& feature = layer.features(0);
+            std::string feature_string = feature.SerializeAsString();
+            mapnik::vector_tile_impl::GeometryPBF geoms = feature_to_pbf_geometry(feature_string);
+            auto geom = mapnik::vector_tile_impl::decode_geometry<double>(
+                geoms, feature.type(), 2, 0.0, 0.0, 1.0, 1.0);
+            CHECK(geom.is<mapnik::geometry::polygon<double>>());
         }
         else
         {
