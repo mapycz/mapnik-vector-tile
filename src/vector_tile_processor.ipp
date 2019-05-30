@@ -11,6 +11,7 @@
 
 // mapnik
 #include <mapnik/box2d.hpp>
+#include <mapnik/box2d_impl.hpp>
 #include <mapnik/datasource.hpp>
 #include <mapnik/feature.hpp>
 #include <mapnik/image_scaling.hpp>
@@ -18,8 +19,10 @@
 #include <mapnik/map.hpp>
 #include <mapnik/version.hpp>
 #include <mapnik/attribute.hpp>
-
 #include <mapnik/geometry_transform.hpp>
+
+// mapbox
+#include <mapbox/geometry/envelope.hpp>
 
 // boost
 #include <boost/optional.hpp>
@@ -89,6 +92,106 @@ struct simple_tiler
     }
 };
 
+template <typename Geom>
+struct indexed_geom : Geom
+{
+    mapnik::box2d<std::int64_t> envelope;
+};
+
+using indexed_multi_point = indexed_geom<mapbox::geometry::multi_point<std::int64_t>>;
+using indexed_line_string = indexed_geom<mapbox::geometry::line_string<std::int64_t>>;
+using indexed_multi_line_string = indexed_geom<mapbox::geometry::multi_line_string<std::int64_t>>;
+using indexed_geometry_collection = indexed_geom<mapbox::geometry::geometry_collection<std::int64_t>>;
+using indexed_polygon = indexed_geom<mapbox::geometry::polygon<std::int64_t>>;
+using indexed_multi_polygon = indexed_geom<mapbox::geometry::multi_polygon<std::int64_t>>;
+
+template <typename NextProcessor>
+struct geometry_indexer
+{
+    NextProcessor & next_;
+
+    geometry_indexer(NextProcessor & next) : next_(next)
+    {
+    }
+
+    void operator() (mapbox::geometry::point<std::int64_t> & geom)
+    {
+        geom.x += tx_;
+        geom.y += ty_;
+        next_(geom);
+    }
+
+    void operator() (mapbox::geometry::multi_point<std::int64_t> & geom)
+    {
+        for (auto & point : geom)
+        {
+            point.x += tx_;
+            point.y += ty_;
+        }
+        next_(geom);
+    }
+
+    void operator() (mapbox::geometry::geometry_collection<std::int64_t> & geom)
+    {
+        for (auto & g : geom)
+        {
+            mapbox::util::apply_visitor((*this), g);
+        }
+    }
+
+    void operator() (mapbox::geometry::line_string<std::int64_t> & geom)
+    {
+        for (auto & point : geom)
+        {
+            point.x += tx_;
+            point.y += ty_;
+        }
+        next_(geom);
+    }
+
+    void operator() (mapbox::geometry::multi_line_string<std::int64_t> & geom)
+    {
+        for (auto & ls : geom)
+        {
+            for (auto & point : ls)
+            {
+                point.x += tx_;
+                point.y += ty_;
+            }
+        }
+        next_(geom);
+    }
+
+    void operator() (mapbox::geometry::polygon<std::int64_t> & geom)
+    {
+        for (auto & ring : geom)
+        {
+            for (auto & point : ring)
+            {
+                point.x += tx_;
+                point.y += ty_;
+            }
+        }
+        next_(geom);
+    }
+
+    void operator() (mapbox::geometry::multi_polygon<std::int64_t> & geom)
+    {
+        for (auto & poly : geom)
+        {
+            for (auto & ring : poly)
+            {
+                for (auto & point : ring)
+                {
+                    point.x += tx_;
+                    point.y += ty_;
+                }
+            }
+        }
+        next_(geom);
+    }
+};
+
 struct wafer_tiler
 {
     merc_wafer & wafer_;
@@ -149,19 +252,26 @@ struct wafer_tiler
         template <typename T>
         void operator() (T const& geom)
         {
+            const mapbox::geometry::box<std::int64_t> geom_box(mapbox::geometry::envelope(geom));
+            const mapnik::box2d<std::int64_t> geom_env(
+                geom_box.min.x, geom_box.min.y,
+                geom_box.max.x, geom_box.max.y);
             auto encoder = encoders_.begin();
             std::int32_t wafer_size = tiler_.wafer_.tile_size();
-            for (std::int32_t y = 0; y < wafer_size; y += tiler_.tile_size_)
+            for (std::int64_t y = 0; y < wafer_size; y += tiler_.tile_size_)
             {
-                for (std::int32_t x = 0; x < wafer_size; x += tiler_.tile_size_)
+                for (std::int64_t x = 0; x < wafer_size; x += tiler_.tile_size_)
                 {
-                    T geom_copy(geom);
-                    mapnik::box2d<std::int32_t> tile_box(
+                    mapnik::box2d<std::int64_t> tile_box(
                         x, y, x + tiler_.tile_size_, y + tiler_.tile_size_);
                     tile_box.pad(tiler_.buffer_size_);
-                    Translator translate(-x, -y, *encoder);
-                    Clipper clipper(tile_box, clipper_params_, translate);
-                    clipper(geom_copy);
+                    if (geom_env.intersects(tile_box))
+                    {
+                        T geom_copy(geom);
+                        Translator translate(-x, -y, *encoder);
+                        Clipper clipper(tile_box, clipper_params_, translate);
+                        clipper(geom_copy);
+                    }
                     ++encoder;
                 }
             }
@@ -243,7 +353,7 @@ inline void create_geom_layer(Tile & tile,
     const double maxx = std::max(p2_min.x, p2_max.x);
     const double miny = std::min(p2_min.y, p2_max.y);
     const double maxy = std::max(p2_min.y, p2_max.y);
-    const mapnik::box2d<int> tile_clipping_extent(minx, miny, maxx, maxy);
+    const mapnik::box2d<std::int64_t> tile_clipping_extent(minx, miny, maxx, maxy);
     const clipper_params clip_params {
         area_threshold, strictly_simple, multi_polygon_union,
         fill_type, process_all_rings };

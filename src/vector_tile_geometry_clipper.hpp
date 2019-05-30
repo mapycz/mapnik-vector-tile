@@ -81,14 +81,14 @@ template <typename NextProcessor>
 class geometry_clipper 
 {
     NextProcessor & next_;
-    mapnik::box2d<int> const& tile_clipping_extent_;
+    mapnik::box2d<std::int64_t> const& tile_clipping_extent_;
     double area_threshold_;
     bool strictly_simple_;
     bool multi_polygon_union_;
     polygon_fill_type fill_type_;
     bool process_all_rings_;
 public:
-    geometry_clipper(mapnik::box2d<int> const& tile_clipping_extent,
+    geometry_clipper(mapnik::box2d<std::int64_t> const& tile_clipping_extent,
                      clipper_params const & params,
                      NextProcessor & next) :
               next_(next),
@@ -101,7 +101,7 @@ public:
     {
     }
 
-    geometry_clipper(mapnik::box2d<int> const& tile_clipping_extent,
+    geometry_clipper(mapnik::box2d<std::int64_t> const& tile_clipping_extent,
                      double area_threshold,
                      bool strictly_simple,
                      bool multi_polygon_union,
