@@ -118,6 +118,7 @@ struct indexed_multi_geom
     mapnik::box2d<std::int64_t> envelope;
 };
 
+using indexed_point = indexed_geom<mapbox::geometry::point<std::int64_t>>;
 using indexed_multi_point = indexed_geom<mapbox::geometry::multi_point<std::int64_t>>;
 using indexed_line_string = indexed_geom<mapbox::geometry::line_string<std::int64_t>>;
 using indexed_multi_line_string = indexed_multi_geom<mapbox::geometry::multi_line_string<std::int64_t>>;
@@ -135,7 +136,8 @@ struct geometry_indexer
 
     void operator() (mapbox::geometry::point<std::int64_t> & geom)
     {
-        next_(geom);
+        indexed_point indexed(geom);
+        next_(indexed);
     }
 
     void operator() (mapbox::geometry::multi_point<std::int64_t> & geom)
@@ -227,19 +229,19 @@ public:
     {
     }
 
-    void operator() (mapbox::geometry::point<std::int64_t> const & geom)
+    void operator() (indexed_point const & geom)
     {
-        if (tile_clipping_extent_.intersects(geom.x, geom.y))
+        if (tile_clipping_extent_.intersects(geom.geom.x, geom.geom.y))
         {
-            mapbox::geometry::point<std::int64_t> point(geom);
+            mapbox::geometry::point<std::int64_t> point(geom.geom);
             next_(point);
         }
     }
 
-    void operator() (mapbox::geometry::multi_point<std::int64_t> const & geom)
+    void operator() (indexed_multi_point const & geom)
     {
         mapbox::geometry::multi_point<std::int64_t> intersection;
-        std::copy_if(intersection.begin(), intersection.end(),
+        std::copy_if(geom.geom.begin(), geom.geom.end(),
             std::back_inserter(intersection),
             [&](mapbox::geometry::point<std::int64_t> const & p)
             {
@@ -259,9 +261,9 @@ public:
         }
     }
 
-    void operator() (mapbox::geometry::line_string<std::int64_t> const & geom)
+    void operator() (indexed_line_string const & geom)
     {
-        if (geom.size() < 2)
+        if (geom.geom.size() < 2)
         {
             return;
         }
@@ -273,7 +275,7 @@ public:
         clip_box.emplace_back(tile_clipping_extent_.maxx(),tile_clipping_extent_.maxy());
         clip_box.emplace_back(tile_clipping_extent_.minx(),tile_clipping_extent_.maxy());
         clip_box.emplace_back(tile_clipping_extent_.minx(),tile_clipping_extent_.miny());
-        boost::geometry::intersection(clip_box, geom, result);
+        boost::geometry::intersection(clip_box, geom.geom, result);
         if (result.empty())
         {
             return;
@@ -281,9 +283,9 @@ public:
         next_(result);
     }
 
-    void operator() (mapbox::geometry::multi_line_string<std::int64_t> const & geom)
+    void operator() (indexed_multi_line_string const & geom)
     {
-        if (geom.empty())
+        if (geom.geoms.empty())
         {
             return;
         }
@@ -296,13 +298,17 @@ public:
         clip_box.emplace_back(tile_clipping_extent_.minx(),tile_clipping_extent_.maxy());
         clip_box.emplace_back(tile_clipping_extent_.minx(),tile_clipping_extent_.miny());
         mapbox::geometry::multi_line_string<int64_t> results;
-        for (auto const& line : geom)
+        for (auto const& indexed_line : geom.geoms)
         {
-            if (line.size() < 2)
+            if (indexed_line.geom.size() < 2)
             {
                continue;
             }
-            boost::geometry::intersection(clip_box, line, results);
+            if (!tile_clipping_extent_.intersects(indexed_line.envelope))
+            {
+                continue;
+            }
+            boost::geometry::intersection(clip_box, indexed_line.geom, results);
         }
         if (results.empty())
         {
@@ -311,9 +317,9 @@ public:
         next_(results);
     }
 
-    void operator() (mapbox::geometry::polygon<std::int64_t> const & geom)
+    void operator() (mapbox::geometry::polygon<std::int64_t> const & geom.geom)
     {
-        if (geom.empty() || ((geom.front().size() < 3) && !process_all_rings_))
+        if (geom.geom.empty() || ((geom.geom.front().size() < 3) && !process_all_rings_))
         {
             return;
         }
@@ -324,7 +330,7 @@ public:
         mapbox::geometry::box<std::int64_t> b(min_pt, max_pt);
 
         bool first = true;
-        for (auto & ring : geom) {
+        for (auto & ring : geom.geom) {
             if (ring.size() < 3) 
             {
                 if (first) {
@@ -342,10 +348,11 @@ public:
                 if ((std::abs(area) < area_threshold_)  && !process_all_rings_) {
                     return;
                 }
+                mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
                 if (area < 0) {   
-                    std::reverse(ring.begin(), ring.end());
+                    std::reverse(reversed.begin(), reversed.end());
                 }
-                auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(ring, b);
+                auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                 if (new_ring.empty()) {
                     if (process_all_rings_) {
                         continue;
@@ -357,11 +364,12 @@ public:
                 if (std::abs(area) < area_threshold_) {
                     continue;
                 }
+                mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
                 if (area > 0)
                 {
-                    std::reverse(ring.begin(), ring.end());
+                    std::reverse(reversed.begin(), reversed.end());
                 }
-                auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(ring, b);
+                auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                 if (new_ring.empty()) {
                     continue;
                 }
@@ -383,9 +391,9 @@ public:
         next_(mp);
     }
 
-    void operator() (mapbox::geometry::multi_polygon<std::int64_t> & geom)
+    void operator() (indexed_multi_polygon & geom)
     {
-        if (geom.empty())
+        if (geom.geoms.empty())
         {
             return;
         }
@@ -398,10 +406,14 @@ public:
         if (multi_polygon_union_)
         {
             mapbox::geometry::wagyu::wagyu<std::int64_t> clipper;
-            for (auto & poly : geom)
+            for (auto & indexed_poly : geom.geoms)
             {
+                if (!tile_clipping_extent_.intersects(indexed_poly.envelope))
+                {
+                    continue;
+                }
                 bool first = true;
-                for (auto & ring : poly) {
+                for (auto & ring : indexed_poly.geom) {
                     if (ring.size() < 3) 
                     {
                         if (first) {
@@ -418,10 +430,11 @@ public:
                         if ((std::abs(area) < area_threshold_)  && !process_all_rings_) {
                             break;
                         }
+                        mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
                         if (area < 0) {   
-                            std::reverse(ring.begin(), ring.end());
+                            std::reverse(reversed.begin(), reversed.end());
                         }
-                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(ring, b);
+                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                         if (new_ring.empty()) {
                             if (process_all_rings_) {
                                 continue;
@@ -433,11 +446,12 @@ public:
                         if (std::abs(area) < area_threshold_) {
                             continue;
                         }
+                        mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
                         if (area > 0)
                         {
-                            std::reverse(ring.begin(), ring.end());
+                            std::reverse(reversed.begin(), reversed.end());
                         }
-                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(ring, b);
+                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                         if (new_ring.empty()) {
                             continue;
                         }
@@ -452,12 +466,16 @@ public:
         }
         else
         {
-            for (auto & poly : geom)
+            for (auto & indexed_poly : geom.geoms)
             {
+                if (!tile_clipping_extent_.intersects(indexed_poly.envelope))
+                {
+                    continue;
+                }
                 mapbox::geometry::wagyu::wagyu<std::int64_t> clipper;
                 mapbox::geometry::multi_polygon<std::int64_t> tmp_mp;
                 bool first = true;
-                for (auto & ring : poly) {
+                for (auto & ring : indexed_poly.geom) {
                     if (ring.size() < 3) 
                     {
                         if (first) {
@@ -474,10 +492,11 @@ public:
                         if ((std::abs(area) < area_threshold_)  && !process_all_rings_) {
                             break;
                         }
+                        mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
                         if (area < 0) {   
-                            std::reverse(ring.begin(), ring.end());
+                            std::reverse(reversed.begin(), reversed.end());
                         }
-                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(ring, b);
+                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                         if (new_ring.empty()) {
                             if (process_all_rings_) {
                                 continue;
@@ -489,11 +508,12 @@ public:
                         if (std::abs(area) < area_threshold_) {
                             continue;
                         }
+                        mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
                         if (area > 0)
                         {
-                            std::reverse(ring.begin(), ring.end());
+                            std::reverse(reversed.begin(), reversed.end());
                         }
-                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(ring, b);
+                        auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                         if (new_ring.empty()) {
                             continue;
                         }

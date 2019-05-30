@@ -203,12 +203,8 @@ struct wafer_tiler
         }
 
         template <typename T>
-        void operator() (T const& geom)
+        void operator() (T const& indexed_geom)
         {
-            const mapbox::geometry::box<std::int64_t> geom_box(mapbox::geometry::envelope(geom));
-            const mapnik::box2d<std::int64_t> geom_env(
-                geom_box.min.x, geom_box.min.y,
-                geom_box.max.x, geom_box.max.y);
             auto encoder = encoders_.begin();
             std::int32_t wafer_size = tiler_.wafer_.tile_size();
             for (std::int64_t y = 0; y < wafer_size; y += tiler_.tile_size_)
@@ -218,12 +214,11 @@ struct wafer_tiler
                     mapnik::box2d<std::int64_t> tile_box(
                         x, y, x + tiler_.tile_size_, y + tiler_.tile_size_);
                     tile_box.pad(tiler_.buffer_size_);
-                    if (geom_env.intersects(tile_box))
+                    if (indexed_geom.envelope.intersects(tile_box))
                     {
-                        T geom_copy(geom);
                         Translator translate(-x, -y, *encoder);
                         Clipper clipper(tile_box, clipper_params_, translate);
-                        clipper(geom_copy);
+                        clipper(indexed_geom);
                     }
                     ++encoder;
                 }
@@ -324,8 +319,9 @@ inline void create_geom_layer(Tile & tile,
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
                     typename Tiler::visitor tiler_visitor(tiler.get_visitor(*feature, clip_params));
-                    clipping_process clipper(tile_clipping_extent, clip_params, tiler_visitor);
-                    simplifier_process simplifier(simplify_distance, clipper);
+                    geometry_indexer indexer(tiler);
+                    unique_points uniquer(indexer);
+                    simplifier_process simplifier(simplify_distance, uniquer);
                     transform_type transformer(vs, buffered_extent, simplifier);
                     mapnik::util::apply_visitor(transformer, geom);
                 }
@@ -344,7 +340,8 @@ inline void create_geom_layer(Tile & tile,
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
                     typename Tiler::visitor tiler_visitor(tiler.get_visitor(*feature, clip_params));
-                    clipping_process clipper(tile_clipping_extent, clip_params, tiler_visitor);
+                    geometry_indexer indexer(tiler);
+                    unique_points uniquer(indexer);
                     simplifier_process simplifier(simplify_distance, clipper);
                     transform_type transformer(vs2, trans_buffered_extent, simplifier);
                     mapnik::util::apply_visitor(transformer, geom);
@@ -365,7 +362,8 @@ inline void create_geom_layer(Tile & tile,
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
                     typename Tiler::visitor tiler_visitor(tiler.get_visitor(*feature, clip_params));
-                    clipping_process clipper(tile_clipping_extent, clip_params, tiler_visitor);
+                    geometry_indexer indexer(tiler);
+                    unique_points uniquer(indexer);
                     transform_type transformer(vs, buffered_extent, clipper);
                     mapnik::util::apply_visitor(transformer, geom);
                 }
@@ -384,7 +382,8 @@ inline void create_geom_layer(Tile & tile,
                 {
                     mapnik::geometry::geometry<double> const& geom = feature->get_geometry();
                     typename Tiler::visitor tiler_visitor(tiler.get_visitor(*feature, clip_params));
-                    clipping_process clipper(tile_clipping_extent, clip_params, tiler_visitor);
+                    geometry_indexer indexer(tiler);
+                    unique_points uniquer(indexer);
                     transform_type transformer(vs2, trans_buffered_extent, clipper);
                     mapnik::util::apply_visitor(transformer, geom);
                 }
