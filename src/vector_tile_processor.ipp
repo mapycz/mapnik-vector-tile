@@ -64,32 +64,43 @@ struct simple_tiler
         return layer_;
     }
 
+    template <typename Tile>
     struct visitor
     {
         visitor(visitor &&) = default;
 
         using Encoder = mapnik::vector_tile_impl::geometry_to_feature_pbf_visitor;
+        using Clipper = geometry_clipper<Encoder>;
 
         mapnik::feature_impl const& mapnik_feature_;
         Encoder encoder_;
+        clipper_params const & clipper_params_;
+        mapnik::box2d<std::int64_t> tile_box_;
 
-        visitor(mapnik::feature_impl const& mapnik_feature,
-                layer_builder_pbf & builder) :
+        visitor(Tile & tile,
+                mapnik::feature_impl const& mapnik_feature,
+                layer_builder_pbf & builder,
+                clipper_params const & clip_params) :
             mapnik_feature_(mapnik_feature),
-            encoder_(mapnik_feature, builder)
-        {}
+            encoder_(mapnik_feature, builder),
+            clipper_params_(clip_params),
+            tile_box_(0, 0, tile.tile_size(), tile.tile_size())
+        {
+            tile_box_.pad(tile.buffer_size());
+        }
 
         template <typename T>
-        void operator() (T const& geom)
+        void operator() (T const& indexed_geom)
         {
-            encoder_(geom);
+            Clipper clipper(tile_box_, clipper_params_, encoder_);
+            clipper(indexed_geom);
         }
     };
 
     visitor get_visitor(mapnik::feature_impl const& mapnik_feature_,
                         clipper_params const &)
     {
-        return visitor(mapnik_feature_, builder_);
+        return visitor(tile_, mapnik_feature_, builder_, clip_params);
     }
 };
 
@@ -292,16 +303,6 @@ inline void create_geom_layer(Tile & tile,
     using clipping_process = mapnik::vector_tile_impl::geometry_clipper<typename Tiler::visitor>;
 
     mapnik::vector_tile_impl::vector_tile_strategy vs(layer.get_view_transform());
-    mapnik::box2d<double> const& buffered_extent = layer.get_target_buffered_extent();
-    const mapnik::geometry::point<double> p1_min(buffered_extent.minx(), buffered_extent.miny());
-    const mapnik::geometry::point<double> p1_max(buffered_extent.maxx(), buffered_extent.maxy());
-    const mapnik::geometry::point<std::int64_t> p2_min = mapnik::geometry::transform<std::int64_t>(p1_min, vs);
-    const mapnik::geometry::point<std::int64_t> p2_max = mapnik::geometry::transform<std::int64_t>(p1_max, vs);
-    const double minx = std::min(p2_min.x, p2_max.x);
-    const double maxx = std::max(p2_min.x, p2_max.x);
-    const double miny = std::min(p2_min.y, p2_max.y);
-    const double maxy = std::max(p2_min.y, p2_max.y);
-    const mapnik::box2d<std::int64_t> tile_clipping_extent(minx, miny, maxx, maxy);
     const clipper_params clip_params {
         area_threshold, strictly_simple, multi_polygon_union,
         fill_type, process_all_rings };
