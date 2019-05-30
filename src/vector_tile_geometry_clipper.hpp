@@ -16,7 +16,6 @@
 #include <mapnik/warning_ignore.hpp>
 #include <iostream>
 #include <boost/geometry/algorithms/intersection.hpp>
-#include <boost/geometry/algorithms/unique.hpp>
 #pragma GCC diagnostic pop
 
 namespace mapnik
@@ -68,6 +67,116 @@ inline mapbox::geometry::wagyu::fill_type get_wagyu_fill_type(polygon_fill_type 
 
 } // end ns detail
 
+template <typename Geom>
+mapnik::box2d<std::int64_t> make_envelope(Geom const & g)
+{
+    const mapbox::geometry::box<std::int64_t> envelope(
+        mapbox::geometry::envelope(geom));
+    return mapnik::box2d<std::int64_t>(
+        envelope.min.x, envelope.min.y,
+        envelope.max.x, envelope.max.y);
+}
+
+template <typename Geom>
+struct indexed_geom
+{
+    indexed_geom(Geom const & g) :
+        geom(g), envelope(make_envelope(g))
+    {
+    }
+
+    Geom const & geom;
+    mapnik::box2d<std::int64_t> envelope;
+};
+
+template <typename Geom>
+struct indexed_multi_geom
+{
+    indexed_geom(Geom const & multi)
+    {
+        for (auto const & geom : multi)
+        {
+            geoms.emplace_back(geom);
+        }
+
+        bool first;
+        for (auto const & geom : geoms)
+        {
+            if (first)
+            {
+                envelope = geom.envelope;
+                first = false;
+            }
+            else
+            {
+                envelope.expand_to_include(geom.envelope);
+            }
+        }
+    }
+
+    std::vector<indexed_geom<Geom>> geoms;
+    mapnik::box2d<std::int64_t> envelope;
+};
+
+using indexed_multi_point = indexed_geom<mapbox::geometry::multi_point<std::int64_t>>;
+using indexed_line_string = indexed_geom<mapbox::geometry::line_string<std::int64_t>>;
+using indexed_multi_line_string = indexed_multi_geom<mapbox::geometry::multi_line_string<std::int64_t>>;
+using indexed_polygon = indexed_geom<mapbox::geometry::polygon<std::int64_t>>;
+using indexed_multi_multi_polygon = indexed_geom<mapbox::geometry::multi_polygon<std::int64_t>>;
+
+template <typename NextProcessor>
+struct geometry_indexer
+{
+    NextProcessor & next_;
+
+    geometry_indexer(NextProcessor & next) : next_(next)
+    {
+    }
+
+    void operator() (mapbox::geometry::point<std::int64_t> & geom)
+    {
+        next_(geom);
+    }
+
+    void operator() (mapbox::geometry::multi_point<std::int64_t> & geom)
+    {
+        indexed_multi_point indexed(geom);
+        next_(indexed);
+    }
+
+    void operator() (mapbox::geometry::geometry_collection<std::int64_t> & geom)
+    {
+        for (auto & g : geom)
+        {
+            mapbox::util::apply_visitor((*this), g);
+        }
+    }
+
+    void operator() (mapbox::geometry::line_string<std::int64_t> & geom)
+    {
+        indexed_line_string indexed(geom);
+        next_(indexed);
+    }
+
+    void operator() (mapbox::geometry::multi_line_string<std::int64_t> & geom)
+    {
+        indexed_multi_line_string indexed(geom);
+        next_(indexed);
+    }
+
+    void operator() (mapbox::geometry::polygon<std::int64_t> & geom)
+    {
+        indexed_polygon indexed(geom);
+        next_(indexed);
+    }
+
+    void operator() (mapbox::geometry::multi_polygon<std::int64_t> & geom)
+    {
+        indexed_multi_polygon indexed(geom);
+        next_(indexed);
+    }
+};
+
 struct clipper_params
 {
     double area_threshold;
@@ -118,31 +227,31 @@ public:
     {
     }
 
-    void operator() (mapbox::geometry::point<std::int64_t> & geom)
+    void operator() (mapbox::geometry::point<std::int64_t> const & geom)
     {
         if (tile_clipping_extent_.intersects(geom.x, geom.y))
         {
-            next_(geom);
+            mapbox::geometry::point<std::int64_t> point(geom);
+            next_(point);
         }
     }
 
-    void operator() (mapbox::geometry::multi_point<std::int64_t> & geom)
+    void operator() (mapbox::geometry::multi_point<std::int64_t> const & geom)
     {
-        // Here we remove repeated points from multi_point
-        auto last = std::unique(geom.begin(), geom.end());
-        geom.erase(last, geom.end());
-        geom.erase(std::remove_if(geom.begin(), geom.end(),
+        mapbox::geometry::multi_point<std::int64_t> intersection;
+        std::copy_if(intersection.begin(), intersection.end(),
+            std::back_inserter(intersection),
             [&](mapbox::geometry::point<std::int64_t> const & p)
             {
-                return !tile_clipping_extent_.intersects(p.x, p.y);
-            }), geom.end());
-        if (!geom.empty())
+                return tile_clipping_extent_.intersects(p.x, p.y);
+            });
+        if (!intersection.empty())
         {
-            next_(geom);
+            next_(intersection);
         }
     }
 
-    void operator() (mapbox::geometry::geometry_collection<std::int64_t> & geom)
+    void operator() (mapbox::geometry::geometry_collection<std::int64_t> const & geom)
     {
         for (auto & g : geom)
         {
@@ -150,9 +259,8 @@ public:
         }
     }
 
-    void operator() (mapbox::geometry::line_string<std::int64_t> & geom)
+    void operator() (mapbox::geometry::line_string<std::int64_t> const & geom)
     {
-        boost::geometry::unique(geom);
         if (geom.size() < 2)
         {
             return;
@@ -173,7 +281,7 @@ public:
         next_(result);
     }
 
-    void operator() (mapbox::geometry::multi_line_string<std::int64_t> & geom)
+    void operator() (mapbox::geometry::multi_line_string<std::int64_t> const & geom)
     {
         if (geom.empty())
         {
@@ -187,7 +295,6 @@ public:
         clip_box.emplace_back(tile_clipping_extent_.maxx(),tile_clipping_extent_.maxy());
         clip_box.emplace_back(tile_clipping_extent_.minx(),tile_clipping_extent_.maxy());
         clip_box.emplace_back(tile_clipping_extent_.minx(),tile_clipping_extent_.miny());
-        boost::geometry::unique(geom);
         mapbox::geometry::multi_line_string<int64_t> results;
         for (auto const& line : geom)
         {
@@ -204,7 +311,7 @@ public:
         next_(results);
     }
 
-    void operator() (mapbox::geometry::polygon<std::int64_t> & geom)
+    void operator() (mapbox::geometry::polygon<std::int64_t> const & geom)
     {
         if (geom.empty() || ((geom.front().size() < 3) && !process_all_rings_))
         {

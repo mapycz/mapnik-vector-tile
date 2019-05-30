@@ -26,6 +26,7 @@
 
 // boost
 #include <boost/optional.hpp>
+#include <boost/geometry/algorithms/unique.hpp>
 
 // std
 #include <future>
@@ -92,42 +93,24 @@ struct simple_tiler
     }
 };
 
-template <typename Geom>
-struct indexed_geom : Geom
-{
-    mapnik::box2d<std::int64_t> envelope;
-};
-
-using indexed_multi_point = indexed_geom<mapbox::geometry::multi_point<std::int64_t>>;
-using indexed_line_string = indexed_geom<mapbox::geometry::line_string<std::int64_t>>;
-using indexed_multi_line_string = indexed_geom<mapbox::geometry::multi_line_string<std::int64_t>>;
-using indexed_geometry_collection = indexed_geom<mapbox::geometry::geometry_collection<std::int64_t>>;
-using indexed_polygon = indexed_geom<mapbox::geometry::polygon<std::int64_t>>;
-using indexed_multi_polygon = indexed_geom<mapbox::geometry::multi_polygon<std::int64_t>>;
-
 template <typename NextProcessor>
-struct geometry_indexer
+struct unique_points
 {
     NextProcessor & next_;
 
-    geometry_indexer(NextProcessor & next) : next_(next)
+    unique_points(NextProcessor & next) : next_(next)
     {
     }
 
     void operator() (mapbox::geometry::point<std::int64_t> & geom)
     {
-        geom.x += tx_;
-        geom.y += ty_;
         next_(geom);
     }
 
     void operator() (mapbox::geometry::multi_point<std::int64_t> & geom)
     {
-        for (auto & point : geom)
-        {
-            point.x += tx_;
-            point.y += ty_;
-        }
+        auto last = std::unique(geom.begin(), geom.end());
+        geom.erase(last, geom.end());
         next_(geom);
     }
 
@@ -141,53 +124,23 @@ struct geometry_indexer
 
     void operator() (mapbox::geometry::line_string<std::int64_t> & geom)
     {
-        for (auto & point : geom)
-        {
-            point.x += tx_;
-            point.y += ty_;
-        }
+        boost::geometry::unique(geom);
         next_(geom);
     }
 
     void operator() (mapbox::geometry::multi_line_string<std::int64_t> & geom)
     {
-        for (auto & ls : geom)
-        {
-            for (auto & point : ls)
-            {
-                point.x += tx_;
-                point.y += ty_;
-            }
-        }
+        boost::geometry::unique(geom);
         next_(geom);
     }
 
     void operator() (mapbox::geometry::polygon<std::int64_t> & geom)
     {
-        for (auto & ring : geom)
-        {
-            for (auto & point : ring)
-            {
-                point.x += tx_;
-                point.y += ty_;
-            }
-        }
         next_(geom);
     }
 
     void operator() (mapbox::geometry::multi_polygon<std::int64_t> & geom)
     {
-        for (auto & poly : geom)
-        {
-            for (auto & ring : poly)
-            {
-                for (auto & point : ring)
-                {
-                    point.x += tx_;
-                    point.y += ty_;
-                }
-            }
-        }
         next_(geom);
     }
 };
