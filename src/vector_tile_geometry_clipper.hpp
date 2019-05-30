@@ -8,6 +8,7 @@
 
 // mapbox
 #include <mapbox/geometry/geometry.hpp>
+#include <mapbox/geometry/envelope.hpp>
 #include <mapbox/geometry/wagyu/quick_clip.hpp>
 #include <mapbox/geometry/wagyu/wagyu.hpp>
 
@@ -71,7 +72,7 @@ template <typename Geom>
 mapnik::box2d<std::int64_t> make_envelope(Geom const & g)
 {
     const mapbox::geometry::box<std::int64_t> envelope(
-        mapbox::geometry::envelope(geom));
+        mapbox::geometry::envelope(g));
     return mapnik::box2d<std::int64_t>(
         envelope.min.x, envelope.min.y,
         envelope.max.x, envelope.max.y);
@@ -92,7 +93,7 @@ struct indexed_geom
 template <typename Geom>
 struct indexed_multi_geom
 {
-    indexed_geom(Geom const & multi)
+    indexed_multi_geom(Geom const & multi)
     {
         for (auto const & geom : multi)
         {
@@ -114,7 +115,7 @@ struct indexed_multi_geom
         }
     }
 
-    std::vector<indexed_geom<Geom>> geoms;
+    std::vector<indexed_geom<typename Geom::value_type>> geoms;
     mapnik::box2d<std::int64_t> envelope;
 };
 
@@ -123,7 +124,7 @@ using indexed_multi_point = indexed_geom<mapbox::geometry::multi_point<std::int6
 using indexed_line_string = indexed_geom<mapbox::geometry::line_string<std::int64_t>>;
 using indexed_multi_line_string = indexed_multi_geom<mapbox::geometry::multi_line_string<std::int64_t>>;
 using indexed_polygon = indexed_geom<mapbox::geometry::polygon<std::int64_t>>;
-using indexed_multi_multi_polygon = indexed_geom<mapbox::geometry::multi_polygon<std::int64_t>>;
+using indexed_multi_polygon = indexed_multi_geom<mapbox::geometry::multi_polygon<std::int64_t>>;
 
 template <typename NextProcessor>
 struct geometry_indexer
@@ -317,7 +318,7 @@ public:
         next_(results);
     }
 
-    void operator() (mapbox::geometry::polygon<std::int64_t> const & geom.geom)
+    void operator() (indexed_polygon const & geom)
     {
         if (geom.geom.empty() || ((geom.geom.front().size() < 3) && !process_all_rings_))
         {
@@ -391,7 +392,7 @@ public:
         next_(mp);
     }
 
-    void operator() (indexed_multi_polygon & geom)
+    void operator() (indexed_multi_polygon const & geom)
     {
         if (geom.geoms.empty())
         {
@@ -406,14 +407,14 @@ public:
         if (multi_polygon_union_)
         {
             mapbox::geometry::wagyu::wagyu<std::int64_t> clipper;
-            for (auto & indexed_poly : geom.geoms)
+            for (auto const & indexed_poly : geom.geoms)
             {
                 if (!tile_clipping_extent_.intersects(indexed_poly.envelope))
                 {
                     continue;
                 }
                 bool first = true;
-                for (auto & ring : indexed_poly.geom) {
+                for (auto const & ring : indexed_poly.geom) {
                     if (ring.size() < 3) 
                     {
                         if (first) {
@@ -466,7 +467,7 @@ public:
         }
         else
         {
-            for (auto & indexed_poly : geom.geoms)
+            for (auto const & indexed_poly : geom.geoms)
             {
                 if (!tile_clipping_extent_.intersects(indexed_poly.envelope))
                 {
@@ -475,7 +476,7 @@ public:
                 mapbox::geometry::wagyu::wagyu<std::int64_t> clipper;
                 mapbox::geometry::multi_polygon<std::int64_t> tmp_mp;
                 bool first = true;
-                for (auto & ring : indexed_poly.geom) {
+                for (auto const & ring : indexed_poly.geom) {
                     if (ring.size() < 3) 
                     {
                         if (first) {
