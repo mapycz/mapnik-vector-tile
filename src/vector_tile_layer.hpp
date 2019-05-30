@@ -77,6 +77,7 @@ class vector_layer
 {
 protected:
     bool valid_;
+    unsigned span_;
     mapnik::Map const& map_;
     mapnik::layer const& layer_;
     double scale_denom_;
@@ -102,8 +103,10 @@ public:
                int offset_x,
                int offset_y,
                bool style_level_filter,
-               mapnik::attributes const& vars)
+               mapnik::attributes const& vars,
+               unsigned span)
         : valid_(true),
+          span_(span),
           map_(map),
           layer_(lay),
           scale_denom_(scale_denom),
@@ -123,6 +126,7 @@ public:
 
     vector_layer(vector_layer && rhs)
         : valid_(std::move(rhs.valid_)),
+          span_(std::move(rhs.span_)),
           map_(std::move(rhs.map_)),
           layer_(std::move(rhs.layer_)),
           scale_denom_(std::move(rhs.scale_denom_)),
@@ -184,7 +188,9 @@ public:
         {
             if (!ds_ || ds_->type() == datasource::Vector)
             {
-                buffer_padding *= (*layer_buffer_size) * (static_cast<double>(layer_extent_) / VT_LEGACY_IMAGE_SIZE);
+                buffer_padding *= (*layer_buffer_size) *
+                    (static_cast<double>(layer_extent_) /
+                     (VT_LEGACY_IMAGE_SIZE * span_));
             }
             else
             {
@@ -238,7 +244,7 @@ public:
         // Adjust the scale denominator if required
         if (scale_denom <= 0.0)
         {
-            double scale = tile_extent_bbox.width() / VT_LEGACY_IMAGE_SIZE;
+            double scale = tile_extent_bbox.width() / (VT_LEGACY_IMAGE_SIZE * span_);
             scale_denom = mapnik::scale_denominator(scale, target_proj_.is_geographic());
         }
         scale_denom *= scale_factor;
@@ -288,8 +294,8 @@ public:
         double qh = unbuffered_query_extent.height() > 0 ? unbuffered_query_extent.height() : 1;
         if (!ds_ || ds_->type() == datasource::Vector)
         {
-            qw = VT_LEGACY_IMAGE_SIZE / qw;
-            qh = VT_LEGACY_IMAGE_SIZE / qh;
+            qw = (VT_LEGACY_IMAGE_SIZE * span_) / qw;
+            qh = (VT_LEGACY_IMAGE_SIZE * span_) / qh;
         }
         else
         {
@@ -478,7 +484,7 @@ public:
         vector_layer(map, lay, tile.extent(), tile.tile_size(),
                      tile.buffer_size(), scale_factor, scale_denom,
                      offset_x, offset_y, style_level_filter,
-                     vars)
+                     vars, 1)
     {
     }
 
@@ -524,7 +530,7 @@ public:
         vector_layer(map, lay, wafer.extent(), wafer.tile_size(),
                      wafer.buffer_size(), scale_factor, scale_denom,
                      offset_x, offset_y, style_level_filter,
-                     vars),
+                     vars, wafer.span()),
         buffers_(wafer.tiles().size())
     {
     }

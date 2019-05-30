@@ -525,3 +525,48 @@ TEST_CASE("vector wafer output - multipolygon")
     }
 }
 
+TEST_CASE("vector wafer output - scale denom")
+{
+    const std::string style(R"xxx(
+        <Map srs="+init=epsg:3857">
+            <Layer
+                name="polygon"
+                srs="+init=epsg:4326"
+                minimum-scale-denominator="1500000"
+                maximum-scale-denominator="3000000">
+                <Datasource>
+                    <Parameter name="type">geojson</Parameter>
+                    <Parameter name="inline">
+                        {"type":"Polygon","coordinates":[[
+                            [ 10,  10],
+                            [-10,  10],
+                            [-10, -10],
+                            [ 10, -10],
+                            [ 10,  10]
+                        ]]}
+                    </Parameter>
+                </Datasource>
+            </Layer>
+        </Map>)xxx");
+
+    mapnik::Map map(256, 256);
+    mapnik::load_map_string(map, style);
+
+    mapnik::vector_tile_impl::processor ren(map);
+
+    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(127, 127, 8, 8, 4096, 64);
+    CHECK(wafer.span() == 8);
+    REQUIRE(wafer.tiles().size() == 64);
+
+    const mapnik::box2d<double> expected_extent(
+        -156543.0339280404, -1095801.2374962866,
+        1095801.2374962866, 156543.0339280404);
+    CHECK(wafer.extent().minx() == Approx(expected_extent.minx()));
+    CHECK(wafer.extent().miny() == Approx(expected_extent.miny()));
+    CHECK(wafer.extent().maxx() == Approx(expected_extent.maxx()));
+    CHECK(wafer.extent().maxy() == Approx(expected_extent.maxy()));
+
+    CHECK(wafer.tile_size() == 4096 * 8);
+    CHECK(wafer.buffer_size() == 64);
+    CHECK(wafer.has_layer("polygon") == true);
+}
