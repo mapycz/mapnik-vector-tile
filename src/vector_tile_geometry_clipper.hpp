@@ -120,7 +120,10 @@ public:
 
     void operator() (mapbox::geometry::point<std::int64_t> & geom)
     {
-        next_(geom);
+        if (tile_clipping_extent_.intersects(geom.x, geom.y))
+        {
+            next_(geom);
+        }
     }
 
     void operator() (mapbox::geometry::multi_point<std::int64_t> & geom)
@@ -128,7 +131,15 @@ public:
         // Here we remove repeated points from multi_point
         auto last = std::unique(geom.begin(), geom.end());
         geom.erase(last, geom.end());
-        next_(geom);
+        geom.erase(std::remove_if(geom.begin(), geom.end(),
+            [&](mapbox::geometry::point<std::int64_t> const & p)
+            {
+                return !tile_clipping_extent_.intersects(p.x, p.y);
+            }), geom.end());
+        if (!geom.empty())
+        {
+            next_(geom);
+        }
     }
 
     void operator() (mapbox::geometry::geometry_collection<std::int64_t> & geom)

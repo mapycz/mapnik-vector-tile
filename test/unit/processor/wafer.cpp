@@ -20,7 +20,7 @@
 // std
 #include <set>
 
-TEST_CASE("vector wafer output")
+TEST_CASE("vector wafer output - polygon")
 {
     const std::string style(R"xxx(
         <Map srs="+init=epsg:3857">
@@ -180,6 +180,221 @@ TEST_CASE("vector wafer output")
         else
         {
             CHECK(tile.has_layer("polygon") == false);
+        }
+        ++index;
+    }
+}
+
+
+TEST_CASE("vector wafer output - point")
+{
+    const std::string style(R"xxx(
+        <Map srs="+init=epsg:3857">
+            <Layer name="point" srs="+init=epsg:4326">
+                <Datasource>
+                    <Parameter name="type">csv</Parameter>
+                    <Parameter name="inline">
+                        x, y
+                        0, 0
+                    </Parameter>
+                </Datasource>
+            </Layer>
+        </Map>)xxx");
+
+    mapnik::Map map(256, 256);
+    mapnik::load_map_string(map, style);
+
+    mapnik::vector_tile_impl::processor ren(map);
+
+    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(0, 0, 2, 4, 1024, 64);
+    CHECK(wafer.span() == 4);
+    REQUIRE(wafer.tiles().size() == 16);
+
+    const mapnik::box2d<double> expected_extent(
+        -20037508.3427892439, -20037508.3427892439,
+         20037508.3427892439,  20037508.3427892439);
+    CHECK(wafer.extent().minx() == Approx(expected_extent.minx()));
+    CHECK(wafer.extent().miny() == Approx(expected_extent.miny()));
+    CHECK(wafer.extent().maxx() == Approx(expected_extent.maxx()));
+    CHECK(wafer.extent().maxy() == Approx(expected_extent.maxy()));
+
+    CHECK(wafer.tile_size() == 1024 * 4);
+    CHECK(wafer.buffer_size() == 64);
+    CHECK(wafer.has_layer("point") == true);
+
+    const std::set<std::size_t> non_empty_tile_indices {
+        1 * 4 + 1, 1 * 4 + 2,
+        2 * 4 + 1, 2 * 4 + 2 };
+    std::size_t index = 0;
+
+    for (auto const & tile : wafer.tiles())
+    {
+        if (non_empty_tile_indices.count(index))
+        {
+            CHECK(tile.has_layer("point") == true);
+            vector_tile::Tile mvt;
+            mvt.ParseFromString(tile.get_buffer());
+            REQUIRE(1 == mvt.layers_size());
+            vector_tile::Tile_Layer const& layer = mvt.layers(0);
+            CHECK(std::string("point") == layer.name());
+            REQUIRE(1 == layer.features_size());
+            vector_tile::Tile_Feature const& feature = layer.features(0);
+            std::string feature_string = feature.SerializeAsString();
+            mapnik::vector_tile_impl::GeometryPBF geoms = feature_to_pbf_geometry(feature_string);
+            auto geom = mapnik::vector_tile_impl::decode_geometry<double>(
+                geoms, feature.type(), 2, 0.0, 0.0, 1.0, 1.0);
+            using Geom = mapnik::geometry::point<double>;
+            CHECK(geom.is<Geom>());
+
+            switch (index)
+            {
+                case 1 * 4 + 1:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    CHECK(g.x == Approx(1024.0));
+                    CHECK(g.y == Approx(1024.0));
+                    break;
+                }
+                case 1 * 4 + 2:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    CHECK(g.x == Approx(0.0));
+                    CHECK(g.y == Approx(1024.0));
+                    break;
+                }
+                case 2 * 4 + 1:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    CHECK(g.x == Approx(1024.0));
+                    CHECK(g.y == Approx(0.0));
+                    break;
+                }
+                case 2 * 4 + 2:
+                {
+                    Geom const & g = geom.get<Geom>();
+                    CHECK(g.x == Approx(0.0));
+                    CHECK(g.y == Approx(0.0));
+                    break;
+                }
+            }
+        }
+        else
+        {
+            CHECK(tile.has_layer("point") == false);
+        }
+        ++index;
+    }
+}
+
+TEST_CASE("vector wafer output - multipoint")
+{
+    const std::string style(R"xxx(
+        <Map srs="+init=epsg:3857">
+            <Layer name="multipoint" srs="+init=epsg:4326">
+                <Datasource>
+                    <Parameter name="type">csv</Parameter>
+                    <Parameter name="inline">
+                        wkt
+                        "MULTIPOINT(0 0, 10 10)"
+                    </Parameter>
+                </Datasource>
+            </Layer>
+        </Map>)xxx");
+
+    mapnik::Map map(256, 256);
+    mapnik::load_map_string(map, style);
+
+    mapnik::vector_tile_impl::processor ren(map);
+
+    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(0, 0, 2, 4, 1024, 64);
+    CHECK(wafer.span() == 4);
+    REQUIRE(wafer.tiles().size() == 16);
+
+    const mapnik::box2d<double> expected_extent(
+        -20037508.3427892439, -20037508.3427892439,
+         20037508.3427892439,  20037508.3427892439);
+    CHECK(wafer.extent().minx() == Approx(expected_extent.minx()));
+    CHECK(wafer.extent().miny() == Approx(expected_extent.miny()));
+    CHECK(wafer.extent().maxx() == Approx(expected_extent.maxx()));
+    CHECK(wafer.extent().maxy() == Approx(expected_extent.maxy()));
+
+    CHECK(wafer.tile_size() == 1024 * 4);
+    CHECK(wafer.buffer_size() == 64);
+    CHECK(wafer.has_layer("multipoint") == true);
+
+    const std::set<std::size_t> non_empty_tile_indices {
+        1 * 4 + 1, 1 * 4 + 2,
+        2 * 4 + 1, 2 * 4 + 2 };
+    std::size_t multipoint_index = 1 * 4 + 2;
+    std::size_t index = 0;
+
+    for (auto const & tile : wafer.tiles())
+    {
+        if (non_empty_tile_indices.count(index))
+        {
+            CHECK(tile.has_layer("multipoint") == true);
+            vector_tile::Tile mvt;
+            mvt.ParseFromString(tile.get_buffer());
+            REQUIRE(1 == mvt.layers_size());
+            vector_tile::Tile_Layer const& layer = mvt.layers(0);
+            CHECK(std::string("multipoint") == layer.name());
+            REQUIRE(1 == layer.features_size());
+            vector_tile::Tile_Feature const& feature = layer.features(0);
+            std::string feature_string = feature.SerializeAsString();
+            mapnik::vector_tile_impl::GeometryPBF geoms = feature_to_pbf_geometry(feature_string);
+            auto geom = mapnik::vector_tile_impl::decode_geometry<double>(
+                geoms, feature.type(), 2, 0.0, 0.0, 1.0, 1.0);
+
+            if (index == multipoint_index)
+            {
+                using Geom = mapnik::geometry::multi_point<double>;
+                CHECK(geom.is<Geom>());
+                Geom const & g = geom.get<Geom>();
+                CHECK(g.size() == 2);
+                CHECK(g[0].x == Approx(0.0));
+                CHECK(g[0].y == Approx(1024.0));
+                CHECK(g[1].x == Approx(114.0));
+                CHECK(g[1].y == Approx(910.0));
+            }
+            else
+            {
+                using Geom = mapnik::geometry::point<double>;
+                CHECK(geom.is<Geom>());
+
+                switch (index)
+                {
+                    case 1 * 4 + 1:
+                    {
+                        Geom const & g = geom.get<Geom>();
+                        CHECK(g.x == Approx(1024.0));
+                        CHECK(g.y == Approx(1024.0));
+                        break;
+                    }
+                    case 1 * 4 + 2:
+                    {
+                        CHECK(false); // Should not get here
+                        break;
+                    }
+                    case 2 * 4 + 1:
+                    {
+                        Geom const & g = geom.get<Geom>();
+                        CHECK(g.x == Approx(1024.0));
+                        CHECK(g.y == Approx(0.0));
+                        break;
+                    }
+                    case 2 * 4 + 2:
+                    {
+                        Geom const & g = geom.get<Geom>();
+                        CHECK(g.x == Approx(0.0));
+                        CHECK(g.y == Approx(0.0));
+                        break;
+                    }
+                }
+            }
+        }
+        else
+        {
+            CHECK(tile.has_layer("multipoint") == false);
         }
         ++index;
     }
