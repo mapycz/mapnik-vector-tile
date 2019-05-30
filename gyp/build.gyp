@@ -82,11 +82,13 @@
         "<@(common_defines)"
       ],
       'cflags_cc' : [
-          '<!@(mapnik-config --cflags)'
+          '<!@(mapnik-config --cflags)',
+          '-std=c++14'
       ],
       'xcode_settings': {
         'OTHER_CPLUSPLUSFLAGS':[
-           '<!@(mapnik-config --cflags)'
+           '<!@(mapnik-config --cflags)',
+          '-std=c++14'
         ],
       },
       'direct_dependent_settings': {
