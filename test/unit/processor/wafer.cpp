@@ -570,3 +570,26 @@ TEST_CASE("vector wafer output - scale denom")
     CHECK(wafer.buffer_size() == 64);
     CHECK(wafer.has_layer("polygon") == true);
 }
+
+TEST_CASE("vector wafer output - huge multipolygons")
+{
+    const std::string style(R"xxx(
+        <Map srs="+init=epsg:3857">
+            <Layer name="test">
+                <Datasource>
+                    <Parameter name="type">geojson</Parameter>
+                    <Parameter name="file">test/data/buildings.json</Parameter>
+                </Datasource>
+            </Layer>
+        </Map>)xxx");
+
+    mapnik::Map map(256, 256);
+    mapnik::load_map_string(map, style);
+
+    mapnik::vector_tile_impl::processor ren(map);
+
+    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(8688, 5592, 14, 8, 1024, 20);
+    CHECK(wafer.span() == 8);
+    REQUIRE(wafer.tiles().size() == 64);
+    CHECK(wafer.has_layer("test") == true);
+}
