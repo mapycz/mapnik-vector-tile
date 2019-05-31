@@ -50,12 +50,12 @@ double area(mapbox::geometry::linear_ring<T> const& poly) {
 
 inline mapbox::geometry::wagyu::fill_type get_wagyu_fill_type(polygon_fill_type type)
 {
-    switch (type) 
+    switch (type)
     {
     case polygon_fill_type_max:
     case even_odd_fill:
         return mapbox::geometry::wagyu::fill_type_even_odd;
-    case non_zero_fill: 
+    case non_zero_fill:
         return mapbox::geometry::wagyu::fill_type_non_zero;
     case positive_fill:
         return mapbox::geometry::wagyu::fill_type_positive;
@@ -78,43 +78,19 @@ struct clipper_params
 };
 
 template <typename NextProcessor>
-class geometry_clipper 
+class geometry_clipper
 {
     NextProcessor & next_;
     mapnik::box2d<std::int64_t> const& tile_clipping_extent_;
-    double area_threshold_;
-    bool strictly_simple_;
-    bool multi_polygon_union_;
-    polygon_fill_type fill_type_;
-    bool process_all_rings_;
+    clipper_params const & params_;
+
 public:
     geometry_clipper(mapnik::box2d<std::int64_t> const& tile_clipping_extent,
                      clipper_params const & params,
                      NextProcessor & next) :
               next_(next),
               tile_clipping_extent_(tile_clipping_extent),
-              area_threshold_(params.area_threshold),
-              strictly_simple_(params.strictly_simple),
-              multi_polygon_union_(params.multi_polygon_union),
-              fill_type_(params.fill_type),
-              process_all_rings_(params.process_all_rings)
-    {
-    }
-
-    geometry_clipper(mapnik::box2d<std::int64_t> const& tile_clipping_extent,
-                     double area_threshold,
-                     bool strictly_simple,
-                     bool multi_polygon_union,
-                     polygon_fill_type fill_type,
-                     bool process_all_rings,
-                     NextProcessor & next) :
-              next_(next),
-              tile_clipping_extent_(tile_clipping_extent),
-              area_threshold_(area_threshold),
-              strictly_simple_(strictly_simple),
-              multi_polygon_union_(multi_polygon_union),
-              fill_type_(fill_type),
-              process_all_rings_(process_all_rings)
+              params_(params)
     {
     }
 
@@ -208,11 +184,11 @@ public:
 
     void operator() (indexed_polygon const & geom)
     {
-        if (geom.geom.empty() || ((geom.geom.front().size() < 3) && !process_all_rings_))
+        if (geom.geom.empty() || ((geom.geom.front().size() < 3) && !params_.process_all_rings))
         {
             return;
         }
-        
+
         mapbox::geometry::wagyu::wagyu<std::int64_t> clipper;
         mapbox::geometry::point<std::int64_t> min_pt(tile_clipping_extent_.minx(), tile_clipping_extent_.miny());
         mapbox::geometry::point<std::int64_t> max_pt(tile_clipping_extent_.maxx(), tile_clipping_extent_.maxy());
@@ -220,10 +196,10 @@ public:
 
         bool first = true;
         for (auto & ring : geom.geom) {
-            if (ring.size() < 3) 
+            if (ring.size() < 3)
             {
                 if (first) {
-                    if (process_all_rings_) {
+                    if (params_.process_all_rings) {
                         first = false;
                     } else {
                         return;
@@ -234,23 +210,23 @@ public:
             double area = detail::area(ring);
             if (first) {
                 first = false;
-                if ((std::abs(area) < area_threshold_)  && !process_all_rings_) {
+                if ((std::abs(area) < params_.area_threshold)  && !params_.process_all_rings) {
                     return;
                 }
                 mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
-                if (area < 0) {   
+                if (area < 0) {
                     std::reverse(reversed.begin(), reversed.end());
                 }
                 auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                 if (new_ring.empty()) {
-                    if (process_all_rings_) {
+                    if (params_.process_all_rings) {
                         continue;
                     }
                     return;
                 }
                 clipper.add_ring(new_ring);
             } else {
-                if (std::abs(area) < area_threshold_) {
+                if (std::abs(area) < params_.area_threshold) {
                     continue;
                 }
                 mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
@@ -267,10 +243,10 @@ public:
         }
 
         mapbox::geometry::multi_polygon<std::int64_t> mp;
-        
-        clipper.execute(mapbox::geometry::wagyu::clip_type_union, 
-                        mp, 
-                        detail::get_wagyu_fill_type(fill_type_), 
+
+        clipper.execute(mapbox::geometry::wagyu::clip_type_union,
+                        mp,
+                        detail::get_wagyu_fill_type(params_.fill_type),
                         mapbox::geometry::wagyu::fill_type_even_odd);
 
         if (mp.empty())
@@ -286,13 +262,13 @@ public:
         {
             return;
         }
-        
+
         mapbox::geometry::point<std::int64_t> min_pt(tile_clipping_extent_.minx(), tile_clipping_extent_.miny());
         mapbox::geometry::point<std::int64_t> max_pt(tile_clipping_extent_.maxx(), tile_clipping_extent_.maxy());
         mapbox::geometry::box<std::int64_t> b(min_pt, max_pt);
         mapbox::geometry::multi_polygon<std::int64_t> mp;
-        
-        if (multi_polygon_union_)
+
+        if (params_.multi_polygon_union)
         {
             mapbox::geometry::wagyu::wagyu<std::int64_t> clipper;
             for (auto const & indexed_poly : geom.geoms)
@@ -303,11 +279,11 @@ public:
                 }
                 bool first = true;
                 for (auto const & ring : indexed_poly.geom) {
-                    if (ring.size() < 3) 
+                    if (ring.size() < 3)
                     {
                         if (first) {
                             first = false;
-                            if (!process_all_rings_) {
+                            if (!params_.process_all_rings) {
                                 break;
                             }
                         }
@@ -316,23 +292,23 @@ public:
                     double area = detail::area(ring);
                     if (first) {
                         first = false;
-                        if ((std::abs(area) < area_threshold_)  && !process_all_rings_) {
+                        if ((std::abs(area) < params_.area_threshold)  && !params_.process_all_rings) {
                             break;
                         }
                         mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
-                        if (area < 0) {   
+                        if (area < 0) {
                             std::reverse(reversed.begin(), reversed.end());
                         }
                         auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                         if (new_ring.empty()) {
-                            if (process_all_rings_) {
+                            if (params_.process_all_rings) {
                                 continue;
                             }
                             break;
                         }
                         clipper.add_ring(new_ring);
                     } else {
-                        if (std::abs(area) < area_threshold_) {
+                        if (std::abs(area) < params_.area_threshold) {
                             continue;
                         }
                         mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
@@ -348,9 +324,9 @@ public:
                     }
                 }
             }
-            clipper.execute(mapbox::geometry::wagyu::clip_type_union, 
-                            mp, 
-                            detail::get_wagyu_fill_type(fill_type_), 
+            clipper.execute(mapbox::geometry::wagyu::clip_type_union,
+                            mp,
+                            detail::get_wagyu_fill_type(params_.fill_type),
                             mapbox::geometry::wagyu::fill_type_even_odd);
         }
         else
@@ -365,11 +341,11 @@ public:
                 mapbox::geometry::multi_polygon<std::int64_t> tmp_mp;
                 bool first = true;
                 for (auto const & ring : indexed_poly.geom) {
-                    if (ring.size() < 3) 
+                    if (ring.size() < 3)
                     {
                         if (first) {
                             first = false;
-                            if (!process_all_rings_) {
+                            if (!params_.process_all_rings) {
                                 break;
                             }
                         }
@@ -378,23 +354,23 @@ public:
                     double area = detail::area(ring);
                     if (first) {
                         first = false;
-                        if ((std::abs(area) < area_threshold_)  && !process_all_rings_) {
+                        if ((std::abs(area) < params_.area_threshold)  && !params_.process_all_rings) {
                             break;
                         }
                         mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
-                        if (area < 0) {   
+                        if (area < 0) {
                             std::reverse(reversed.begin(), reversed.end());
                         }
                         auto new_ring = mapbox::geometry::wagyu::quick_clip::quick_lr_clip(reversed, b);
                         if (new_ring.empty()) {
-                            if (process_all_rings_) {
+                            if (params_.process_all_rings) {
                                 continue;
                             }
                             break;
                         }
                         clipper.add_ring(new_ring);
                     } else {
-                        if (std::abs(area) < area_threshold_) {
+                        if (std::abs(area) < params_.area_threshold) {
                             continue;
                         }
                         mapbox::geometry::linear_ring<std::int64_t> reversed(ring);
@@ -409,9 +385,9 @@ public:
                         clipper.add_ring(new_ring);
                     }
                 }
-                clipper.execute(mapbox::geometry::wagyu::clip_type_union, 
-                                tmp_mp, 
-                                detail::get_wagyu_fill_type(fill_type_), 
+                clipper.execute(mapbox::geometry::wagyu::clip_type_union,
+                                tmp_mp,
+                                detail::get_wagyu_fill_type(params_.fill_type),
                                 mapbox::geometry::wagyu::fill_type_even_odd);
                 mp.insert(mp.end(), tmp_mp.begin(), tmp_mp.end());
             }
