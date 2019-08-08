@@ -1,3 +1,9 @@
+szn-mapnik-vector-tile (1.5.4) Seznam; urgency=medium
+
+  * Fix support for layer-level buffer-size for mvt-wafer
+
+ -- Jiri Drbalek <jiri.drbalek@firma.seznam.cz>  Thu, 08 Aug 2019 11:36:30 +0200
+
 szn-mapnik-vector-tile (1.5.3) Seznam; urgency=medium
 
   * Optimized clipping
