@@ -593,3 +593,63 @@ TEST_CASE("vector wafer output - huge multipolygons")
     REQUIRE(wafer.tiles().size() == 64);
     CHECK(wafer.has_layer("test") == true);
 }
+
+TEST_CASE("vector wafer output - layer buffer size")
+{
+    const std::string style(R"xxx(
+        <Map srs="+init=epsg:3857">
+            <Layer name="line" buffer-size="64">
+                <Datasource>
+                    <Parameter name="type">geojson</Parameter>
+                    <Parameter name="inline">
+                        {"type":"LineString","coordinates":[
+                            [ 10000000,  10000000],
+                            [-10000000,  10000000],
+                            [-10000000, -10000000],
+                            [ 10000000, -10000000],
+                            [ 10000000,  10000000]
+                        ]}
+                    </Parameter>
+                </Datasource>
+            </Layer>
+        </Map>)xxx");
+
+    mapnik::Map map(256, 256);
+    mapnik::load_map_string(map, style);
+
+    mapnik::vector_tile_impl::processor ren(map);
+
+    mapnik::vector_tile_impl::merc_wafer wafer = ren.create_wafer(0, 0, 1, 2, 4096);
+    REQUIRE(wafer.span() == 2);
+    REQUIRE(wafer.tiles().size() == 4);
+
+    mapnik::vector_tile_impl::merc_tile const & tile = wafer.tile(0, 0);
+
+    REQUIRE(tile.has_layer("line") == true);
+    vector_tile::Tile mvt;
+    mvt.ParseFromString(tile.get_buffer());
+    REQUIRE(1 == mvt.layers_size());
+    vector_tile::Tile_Layer const& layer = mvt.layers(0);
+    CHECK(std::string("line") == layer.name());
+    REQUIRE(1 == layer.features_size());
+    vector_tile::Tile_Feature const& feature = layer.features(0);
+    std::string feature_string = feature.SerializeAsString();
+    mapnik::vector_tile_impl::GeometryPBF geoms = feature_to_pbf_geometry(feature_string);
+    auto geom = mapnik::vector_tile_impl::decode_geometry<double>(
+        geoms, feature.type(), 2, 0.0, 0.0, 1.0, 1.0);
+    using Geom = mapnik::geometry::line_string<double>;
+    REQUIRE(geom.is<Geom>());
+
+    Geom const & g = geom.get<Geom>();
+    REQUIRE(g.size() == 3);
+
+    CHECK(g[0].x == Approx(5120.0));
+    CHECK(g[0].y == Approx(2052.0));
+
+    CHECK(g[1].x == Approx(2052.0));
+    CHECK(g[1].y == Approx(2052.0));
+
+    CHECK(g[2].x == Approx(2052.0));
+    CHECK(g[2].y == Approx(5120.0));
+}
+

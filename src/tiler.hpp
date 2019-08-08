@@ -67,6 +67,8 @@ struct simple_tiler
             clipper_params_(clip_params),
             tile_box_(0, 0, tile.tile_size(), tile.tile_size())
         {
+            // TODO: use buffer-size from tile_layer
+            // to get working layer-level buffer-size
             tile_box_.pad(tile.buffer_size());
         }
 
@@ -99,7 +101,7 @@ struct wafer_tiler
     {
         merc_tile const & tile = wafer_.tiles().front();
         tile_size_ = tile.tile_size();
-        buffer_size_ = tile.buffer_size();
+        buffer_size_ = layer.buffer_size();
 
         for (auto & buffer : layer_.buffers())
         {

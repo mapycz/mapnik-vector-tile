@@ -81,6 +81,7 @@ protected:
     mapnik::Map const& map_;
     mapnik::layer const& layer_;
     double scale_denom_;
+    std::int32_t buffer_size_;
     mapnik::datasource_ptr ds_;
     mapnik::projection target_proj_;
     mapnik::projection source_proj_;
@@ -110,13 +111,14 @@ public:
           map_(map),
           layer_(lay),
           scale_denom_(scale_denom),
+          buffer_size_(calc_buffer_size(buffer_size, tile_size, span, lay)),
           ds_(lay.datasource()),
           target_proj_(map.srs(), true),
           source_proj_(lay.srs(), true),
           prj_trans_(target_proj_, source_proj_),
           name_(lay.name()),
           layer_extent_(calc_extent(tile_size)),
-          target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, buffer_size, lay, map)),
+          target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, lay, map)),
           source_buffered_extent_(calc_source_buffered_extent()),
           query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter, vars)),
           view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y)
@@ -130,6 +132,7 @@ public:
           map_(std::move(rhs.map_)),
           layer_(std::move(rhs.layer_)),
           scale_denom_(std::move(rhs.scale_denom_)),
+          buffer_size_(std::move(rhs.buffer_size_)),
           ds_(std::move(rhs.ds_)),
           target_proj_(std::move(rhs.target_proj_)),
           source_proj_(std::move(rhs.source_proj_)),
@@ -175,32 +178,28 @@ public:
         return layer_extent;
     }
 
+    std::int32_t calc_buffer_size(std::int32_t buffer_size,
+                                  std::uint32_t tile_size,
+                                  unsigned span,
+                                  mapnik::layer const& lay) const
+    {
+        boost::optional<int> layer_buffer_size = lay.buffer_size();
+        if (layer_buffer_size)
+        {
+            return (*layer_buffer_size) *
+                (static_cast<double>(tile_size) /
+                 (VT_LEGACY_IMAGE_SIZE * span));
+        }
+        return buffer_size;
+    }
+
     mapnik::box2d<double> calc_target_buffered_extent(mapnik::box2d<double> const& tile_extent_bbox,
-                                               std::int32_t buffer_size,
                                                mapnik::layer const& lay,
                                                mapnik::Map const& map) const
     {
         mapnik::box2d<double> ext(tile_extent_bbox);
         double scale = ext.width() / layer_extent_;
-        double buffer_padding = 2.0 * scale;
-        boost::optional<int> layer_buffer_size = lay.buffer_size();
-        if (layer_buffer_size) // if layer overrides buffer size, use this value to compute buffered extent
-        {
-            if (!ds_ || ds_->type() == datasource::Vector)
-            {
-                buffer_padding *= (*layer_buffer_size) *
-                    (static_cast<double>(layer_extent_) /
-                     (VT_LEGACY_IMAGE_SIZE * span_));
-            }
-            else
-            {
-                buffer_padding *= (*layer_buffer_size) * (static_cast<double>(layer_extent_));
-            }
-        }
-        else
-        {
-            buffer_padding *= buffer_size;
-        }
+        double buffer_padding = 2.0 * scale * buffer_size_;
         double buffered_width = ext.width() + buffer_padding;
         double buffered_height = ext.height() + buffer_padding;
         if (buffered_width < 0.0)
@@ -570,6 +569,11 @@ public:
     std::string & get_data()
     {
         return raster_buffer_;
+    }
+
+    std::int32_t buffer_size() const
+    {
+        return buffer_size_;
     }
 };
 
