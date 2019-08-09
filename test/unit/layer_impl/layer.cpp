@@ -34,6 +34,7 @@ TEST_CASE("Vector tile layer class")
                                                         0, // offset_x
                                                         0, // offset_y
                                                         false,
+                                                        0,
                                                         empty_vars);
         CHECK(some_layer.is_valid());
     }
@@ -61,6 +62,7 @@ TEST_CASE("Vector tile layer class")
                                                         0, // offset_x
                                                         0, // offset_y
                                                         false,
+                                                        0,
                                                         vars);
         CHECK(some_layer.is_valid());
         CHECK( ( vars == some_layer.get_query().variables() ) );

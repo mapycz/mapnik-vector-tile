@@ -92,6 +92,7 @@ protected:
     mapnik::box2d<double> source_buffered_extent_;
     mapnik::query query_;
     mapnik::view_transform view_trans_;
+    const double simplify_distance_;
 
 public:
     vector_layer(mapnik::Map const& map,
@@ -104,6 +105,7 @@ public:
                int offset_x,
                int offset_y,
                bool style_level_filter,
+               double simplify_distance,
                mapnik::attributes const& vars,
                unsigned span)
         : valid_(true),
@@ -121,7 +123,8 @@ public:
           target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, lay, map)),
           source_buffered_extent_(calc_source_buffered_extent()),
           query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter, vars)),
-          view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y)
+          view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y),
+          simplify_distance_(calc_simplify_distance(simplify_distance))
     {
     }
 
@@ -142,7 +145,8 @@ public:
           target_buffered_extent_(std::move(rhs.target_buffered_extent_)),
           source_buffered_extent_(std::move(rhs.source_buffered_extent_)),
           query_(std::move(rhs.query_)),
-          view_trans_(std::move(rhs.view_trans_))
+          view_trans_(std::move(rhs.view_trans_)),
+          simplify_distance_(std::move(rhs.simplify_distance_))
     {
     }
 
@@ -150,6 +154,20 @@ public:
 
     vector_layer(vector_layer const& rhs) = delete;
     vector_layer& operator=(const vector_layer&) = delete;
+
+    double calc_simplify_distance(double simplify_distance) const
+    {
+        if (ds_)
+        {
+            auto val = ds_->params().template get<
+                mapnik::value_double>("mvt_simplify_distance");
+            if (val)
+            {
+                return *val;
+            }
+        }
+        return simplify_distance;
+    }
 
     std::uint32_t calc_extent(std::uint32_t layer_extent)
     {
@@ -463,6 +481,11 @@ public:
     {
         name_ = val;
     }
+
+    double simplify_distance() const
+    {
+        return simplify_distance_;
+    }
 };
 
 class tile_layer : public vector_layer
@@ -479,11 +502,12 @@ public:
                int offset_x,
                int offset_y,
                bool style_level_filter,
+               double simplify_distance,
                mapnik::attributes const& vars) :
         vector_layer(map, lay, tile.extent(), tile.tile_size(),
                      tile.buffer_size(), scale_factor, scale_denom,
                      offset_x, offset_y, style_level_filter,
-                     vars, 1)
+                     simplify_distance, vars, 1)
     {
     }
 
@@ -525,11 +549,12 @@ public:
                int offset_x,
                int offset_y,
                bool style_level_filter,
+               double simplify_distance,
                mapnik::attributes const& vars) :
         vector_layer(map, lay, wafer.extent(), wafer.tile_size(),
                      wafer.buffer_size(), scale_factor, scale_denom,
                      offset_x, offset_y, style_level_filter,
-                     vars, wafer.span()),
+                     simplify_distance, vars, wafer.span()),
         buffers_(wafer.tiles().size())
     {
     }

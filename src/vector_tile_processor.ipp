@@ -40,7 +40,6 @@ namespace detail
 template <typename Tile>
 inline void create_geom_layer(Tile & tile,
                               typename tile_traits<Tile>::Layer & layer,
-                              double simplify_distance,
                               double area_threshold,
                               polygon_fill_type fill_type,
                               bool strictly_simple,
@@ -76,6 +75,7 @@ inline void create_geom_layer(Tile & tile,
     const clipper_params clip_params {
         area_threshold, strictly_simple, multi_polygon_union,
         fill_type, process_all_rings };
+    const double simplify_distance = layer.simplify_distance();
 
     if (simplify_distance > 0)
     {
@@ -246,6 +246,7 @@ void processor::append_sublayers(Parent const& parent,
                              offset_x,
                              offset_y,
                              style_level_filter,
+                             simplify_distance_,
                              vars_);
         if (!tile_layers.back().is_valid())
         {
@@ -280,7 +281,6 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
             if (layer.get_ds()->type() == datasource::Vector)
             {
                 detail::create_geom_layer(t, layer,
-                                          simplify_distance_,
                                           area_threshold_,
                                           fill_type_,
                                           strictly_simple_,
@@ -312,7 +312,6 @@ MAPNIK_VECTOR_INLINE void processor::update_tile(Tile & t,
                                         detail::create_geom_layer<Tile>,
                                         std::ref(t),
                                         std::ref(layer_ref),
-                                        simplify_distance_,
                                         area_threshold_,
                                         fill_type_,
                                         strictly_simple_,
