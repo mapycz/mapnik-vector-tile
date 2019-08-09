@@ -1,3 +1,10 @@
+szn-mapnik-vector-tile (1.6.0) Seznam; urgency=medium
+
+  * Support datasource option 'mvt_simplify_distance' for per-layer
+    simplification
+
+ -- Jiri Drbalek <jiri.drbalek@firma.seznam.cz>  Fri, 09 Aug 2019 15:29:40 +0200
+
 szn-mapnik-vector-tile (1.5.4) Seznam; urgency=medium
 
   * Fix support for layer-level buffer-size for mvt-wafer
