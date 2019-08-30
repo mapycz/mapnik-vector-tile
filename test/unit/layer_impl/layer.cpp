@@ -65,6 +65,7 @@ TEST_CASE("Vector tile layer class")
                                                         0,
                                                         vars);
         CHECK(some_layer.is_valid());
-        CHECK( ( vars == some_layer.get_query().variables() ) );
+        REQUIRE(some_layer.get_query());
+        CHECK( ( vars == some_layer.get_query()->variables() ) );
     }
 }

@@ -76,7 +76,6 @@ struct layer_builder_pbf
 class vector_layer
 {
 protected:
-    bool valid_;
     unsigned span_;
     mapnik::Map const& map_;
     mapnik::layer const& layer_;
@@ -90,7 +89,7 @@ protected:
     std::uint32_t layer_extent_;
     mapnik::box2d<double> target_buffered_extent_;
     mapnik::box2d<double> source_buffered_extent_;
-    mapnik::query query_;
+    boost::optional<mapnik::query> query_;
     mapnik::view_transform view_trans_;
     const double simplify_distance_;
 
@@ -108,8 +107,7 @@ public:
                double simplify_distance,
                mapnik::attributes const& vars,
                unsigned span)
-        : valid_(true),
-          span_(span),
+        : span_(span),
           map_(map),
           layer_(lay),
           scale_denom_(scale_denom),
@@ -119,10 +117,7 @@ public:
           source_proj_(lay.srs(), true),
           prj_trans_(target_proj_, source_proj_),
           name_(lay.name()),
-          layer_extent_(calc_extent(tile_size)),
-          target_buffered_extent_(calc_target_buffered_extent(tile_extent_bbox, lay, map)),
-          source_buffered_extent_(calc_source_buffered_extent()),
-          query_(calc_query(scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter, vars)),
+          query_(calc_query(tile_size, scale_factor, scale_denom, tile_extent_bbox, map, lay, style_level_filter, vars)),
           view_trans_(layer_extent_, layer_extent_, tile_extent_bbox, offset_x, offset_y),
           simplify_distance_(calc_simplify_distance(simplify_distance))
     {
@@ -130,8 +125,7 @@ public:
 
 
     vector_layer(vector_layer && rhs)
-        : valid_(std::move(rhs.valid_)),
-          span_(std::move(rhs.span_)),
+        : span_(std::move(rhs.span_)),
           map_(std::move(rhs.map_)),
           layer_(std::move(rhs.layer_)),
           scale_denom_(std::move(rhs.scale_denom_)),
@@ -169,12 +163,11 @@ public:
         return simplify_distance;
     }
 
-    std::uint32_t calc_extent(std::uint32_t layer_extent)
+    std::uint32_t calc_extent(std::uint32_t layer_extent) const
     {
         if (!ds_)
         {
-            valid_ = false;
-            return 4096;
+            return 0;
         }
         auto ds_extent = ds_->params().template get<mapnik::value_integer>("vector_layer_extent");
         if (ds_extent)
@@ -187,11 +180,6 @@ public:
             {
                 layer_extent = 256;
             }
-        }
-        if (layer_extent == 0)
-        {
-            valid_ = false;
-            layer_extent = 4096;
         }
         return layer_extent;
     }
@@ -212,8 +200,8 @@ public:
     }
 
     mapnik::box2d<double> calc_target_buffered_extent(mapnik::box2d<double> const& tile_extent_bbox,
-                                               mapnik::layer const& lay,
-                                               mapnik::Map const& map) const
+                                                      mapnik::layer const& lay,
+                                                      mapnik::Map const& map) const
     {
         mapnik::box2d<double> ext(tile_extent_bbox);
         double scale = ext.width() / layer_extent_;
@@ -238,26 +226,22 @@ public:
         }
         return ext;
     }
-    
-    mapnik::box2d<double> calc_source_buffered_extent()
-    {
-        mapnik::box2d<double> new_extent(target_buffered_extent_);
-        if (!prj_trans_.forward(new_extent, PROJ_ENVELOPE_POINTS))
-        {
-            // this modifies the layer_ext by clipping to the buffered_ext
-            valid_ = false;
-        }
-        return new_extent;
-    }
 
-    mapnik::query calc_query(double scale_factor,
-                             double scale_denom,
-                             mapnik::box2d<double> const& tile_extent_bbox,
-                             mapnik::Map const& map,
-                             mapnik::layer const& lay,
-                             bool style_level_filter,
-                             mapnik::attributes const& vars)
+    boost::optional<mapnik::query> calc_query(std::uint32_t tile_size,
+                                              double scale_factor,
+                                              double scale_denom,
+                                              mapnik::box2d<double> const& tile_extent_bbox,
+                                              mapnik::Map const& map,
+                                              mapnik::layer const& lay,
+                                              bool style_level_filter,
+                                              mapnik::attributes const& vars)
     {
+        layer_extent_ = calc_extent(tile_size);
+        if (!layer_extent_)
+        {
+            return boost::none;
+        }
+
         // Adjust the scale denominator if required
         if (scale_denom <= 0.0)
         {
@@ -267,14 +251,16 @@ public:
         scale_denom *= scale_factor;
         if (!is_active(map, lay, scale_denom, style_level_filter))
         {
-            valid_ = false;
+            return boost::none;
         }
         scale_denom_ = scale_denom;
 
+        target_buffered_extent_ = calc_target_buffered_extent(tile_extent_bbox, lay, map);
+        source_buffered_extent_ = target_buffered_extent_;
         mapnik::box2d<double> query_extent(lay.envelope()); // source projection
 
         // first, try intersection of map extent forward projected into layer srs
-        if (source_buffered_extent_.intersects(query_extent))
+        if (prj_trans_.forward(source_buffered_extent_, PROJ_ENVELOPE_POINTS) && source_buffered_extent_.intersects(query_extent))
         {
             // this modifies the query_extent by clipping to the buffered_ext
             query_extent.clip(source_buffered_extent_);
@@ -282,7 +268,7 @@ public:
         // if no intersection and projections are also equal, early return
         else if (prj_trans_.equal())
         {
-            valid_ = false;
+            return boost::none;
         }
         // next try intersection of layer extent back projected into map srs
         else if (prj_trans_.backward(query_extent, PROJ_ENVELOPE_POINTS) && target_buffered_extent_.intersects(query_extent))
@@ -297,7 +283,7 @@ public:
         else
         {
             // if no intersection then nothing to do for layer
-            valid_ = false;    
+            return boost::none;
         }
 
         mapnik::box2d<double> unbuffered_query_extent(tile_extent_bbox);
@@ -441,10 +427,14 @@ public:
 
     mapnik::featureset_ptr get_features() const
     {
-        return ds_->features(query_);
+        if (!query_)
+        {
+            return mapnik::make_invalid_featureset();
+        }
+        return ds_->features(*query_);
     }
 
-    mapnik::query const& get_query() const
+    boost::optional<mapnik::query> const& get_query() const
     {
         return query_;
     }
@@ -471,7 +461,7 @@ public:
 
     bool is_valid() const
     {
-        return valid_;
+        return static_cast<bool>(query_);
     }
 
     std::uint32_t layer_extent() const
