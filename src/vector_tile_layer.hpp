@@ -272,14 +272,6 @@ public:
         scale_denom_ = scale_denom;
 
         mapnik::box2d<double> query_extent(lay.envelope()); // source projection
-        mapnik::box2d<double> unbuffered_query_extent(tile_extent_bbox);
-        if (!prj_trans_.equal())
-        {
-            if (!prj_trans_.forward(unbuffered_query_extent, PROJ_ENVELOPE_POINTS))
-            {
-                throw std::runtime_error("vector_tile_processor: unbuffered query extent did not reproject back to map projection");
-            }
-        }
 
         // first, try intersection of map extent forward projected into layer srs
         if (source_buffered_extent_.intersects(query_extent))
@@ -307,6 +299,21 @@ public:
             // if no intersection then nothing to do for layer
             valid_ = false;    
         }
+
+        mapnik::box2d<double> unbuffered_query_extent(tile_extent_bbox);
+        if (!prj_trans_.equal())
+        {
+            if (!prj_trans_.forward(unbuffered_query_extent, PROJ_ENVELOPE_POINTS))
+            {
+                unbuffered_query_extent = lay.envelope();
+                if (prj_trans_.backward(unbuffered_query_extent, PROJ_ENVELOPE_POINTS))
+                {
+                    unbuffered_query_extent.clip(tile_extent_bbox);
+                    prj_trans_.forward(unbuffered_query_extent, PROJ_ENVELOPE_POINTS);
+                }
+            }
+        }
+
         double qw = unbuffered_query_extent.width() > 0 ? unbuffered_query_extent.width() : 1;
         double qh = unbuffered_query_extent.height() > 0 ? unbuffered_query_extent.height() : 1;
         if (!ds_ || ds_->type() == datasource::Vector)
