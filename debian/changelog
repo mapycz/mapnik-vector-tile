@@ -1,3 +1,12 @@
+szn-mapnik-vector-tile (1.6.1) Seznam; urgency=medium
+
+  * Fixed of the situation when tile extent is out of max extent of the source
+    projection.
+  * Stop initialization as early as possible if we cannot make valid,
+    non-empty query bbox.
+
+ -- Jiri Drbalek <jiri.drbalek@firma.seznam.cz>  Fri, 30 Aug 2019 15:45:33 +0200
+
 szn-mapnik-vector-tile (1.6.0) Seznam; urgency=medium
 
   * Support datasource option 'mvt_simplify_distance' for per-layer
